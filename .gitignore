@@ -35,6 +35,9 @@ ScaffoldingReadMe.txt
 *.nupkg
 # NuGet Symbol Packages
 *.snupkg
+# NuGet package directories
+packages/
+**/packages/*
 
 # Others
 ~$*
@@ -52,3 +55,82 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# ==================== ADDITIONS FOR REAL-WORLD PROJECTS ====================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+
+# Visual Studio specific
+.vs/
+*.user
+*.suo
+*.cache
+*.docstates
+*.vspscc
+*.vssscc
+*.vspscc
+*.userosscache
+*.sln.docstates
+
+# User secrets and sensitive config
+appsettings.*.json
+!appsettings.json
+secrets.json
+*.user
+
+# Azure App Service
+.vs/
+appsettings.Development.json
+
+# Local database files
+*.db
+*.sqlite
+*.mdb
+*.mdf
+*.ldf
+
+# Node.js (if using frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime certificates
+*.pfx
+*.pem
+*.key
+*.crt
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+*.temp
+Thumbs.db
+.DS_Store
+
+# Publish profiles
+Properties/PublishProfiles/*.pubxml.user
+
+# SignalR generated files (for real-time features)
+SignalR/hubs/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Test coverage
+coverage/
+*.lcov
+
+# Logs
+*.log
+logs/
