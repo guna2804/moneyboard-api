@@ -1,29 +1,28 @@
 ﻿using MoneyBoard.Domain.Common;
-using PactPal.Domain.Enums;
+using MoneyBoard.Domain.Enums;
 
 namespace MoneyBoard.Domain.Entities
 {
     public class User : BaseEntity
     {
-        public string Email { get; private set; }
-        public string FullName { get; set; }
-        public string PasswordHash { get; private set; }
+        public string Email { get; private set; } = default!;
+        public string FullName { get; set; } = default!;
+        public string PasswordHash { get; private set; } = default!;
         public bool EnableEmailNotifications { get; set; } = true;
-        public string Role { get; set; }
-        public string Timezone { get; set; }
-        public ICollection<Loan> LoansGiven { get; set; }
-        public ICollection<Loan> LoansTaken { get; set; }
+        public string Role { get; set; } = RolesType.User.ToString(); // default
+        public string Timezone { get; set; } = "UTC";
+        public ICollection<Loan> Loans { get; set; } = new List<Loan>();
 
         protected User()
         { }
 
-        public User(string email, string fullName)
+        public User(string email, string fullName, string passwordHash, RolesType role = RolesType.User)
         {
             Id = Guid.NewGuid();
             Email = email;
             FullName = fullName;
-            LoansGiven = new List<Loan>();
-            LoansTaken = new List<Loan>();
+            PasswordHash = passwordHash;
+            Role = role.ToString();
         }
     }
 }
