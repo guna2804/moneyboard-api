@@ -1,14 +1,11 @@
 ﻿using FluentValidation;
 using FluentValidation.AspNetCore;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
-using MoneyBoard.Application.Services;
 using MoneyBoard.Application.Validators;
-using MoneyBoard.Infrastructure.Data;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace MoneyBoard.WebApi.Extensions
 {
