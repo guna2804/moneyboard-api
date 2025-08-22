@@ -1,10 +1,13 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
+using MoneyBoard.Application.Mappings;
 using MoneyBoard.Application.Validators;
+using System.Reflection;
 using System.Text;
 
 namespace MoneyBoard.WebApi.Extensions
@@ -13,7 +16,6 @@ namespace MoneyBoard.WebApi.Extensions
     {
         public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration config)
         {
-            // FluentValidation
             services.AddFluentValidationAutoValidation();
             services.AddFluentValidationClientsideAdapters();
 
@@ -45,7 +47,12 @@ namespace MoneyBoard.WebApi.Extensions
             // Swagger
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen();
+            var mappingConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddMaps(Assembly.GetAssembly(typeof(BaseMappingProfile)));
+            });
 
+            services.AddSingleton(mappingConfig.CreateMapper());
             return services;
         }
     }

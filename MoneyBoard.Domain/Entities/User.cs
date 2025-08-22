@@ -7,7 +7,7 @@ namespace MoneyBoard.Domain.Entities
     {
         public string Email { get; private set; } = default!;
         public string FullName { get; set; } = default!;
-        public string PasswordHash { get; private set; } = default!;
+        public string PasswordHash { get; set; } = default!;
         public bool EnableEmailNotifications { get; set; } = true;
         public string Role { get; set; } = RolesType.User.ToString(); // default
         public string Timezone { get; set; } = "UTC";
