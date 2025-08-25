@@ -3,6 +3,7 @@ using MoneyBoard.Infrastructure;
 using MoneyBoard.WebApi.Extensions;
 using MoneyBoard.WebApi.Middleware;
 using Serilog;
+using Microsoft.AspNetCore.Cors;
 
 try
 {
@@ -20,6 +21,18 @@ try
             .Enrich.FromLogContext());
 
     builder.Services.AddControllers();
+
+    // Add CORS policy to allow all
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAll", builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+    });
+
     builder.Services
         .AddApplication()
         .AddInfrastructure(builder.Configuration)
@@ -37,6 +50,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseCors("AllowAll"); // Apply CORS policy
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
