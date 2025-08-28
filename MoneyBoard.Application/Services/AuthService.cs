@@ -1,15 +1,16 @@
 ﻿using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Domain.Entities;
-using MoneyBoard.Infrastructure.Data;
+using MoneyBoard.Domain.Repositories;
 
 public sealed class AuthService : IAuthService
 {
-    private readonly AppDbContext _db;
+    private readonly IUserRepository _userRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IConfiguration _config;
     private readonly IBCryptService _bcrypt;
     private readonly ITokenService _token;
@@ -21,7 +22,9 @@ public sealed class AuthService : IAuthService
     private sealed record JwtOptions(string Issuer, string Audience, string Key);
 
     public AuthService(
-        AppDbContext db,
+        IUserRepository userRepository,
+        IRefreshTokenRepository refreshTokenRepository,
+        IPasswordResetTokenRepository passwordResetTokenRepository,
         IConfiguration config,
         IBCryptService bcrypt,
         ITokenService token,
@@ -29,7 +32,9 @@ public sealed class AuthService : IAuthService
         IMapper mapper,
         ILogger<AuthService> logger)
     {
-        _db = db;
+        _userRepository = userRepository;
+        _refreshTokenRepository = refreshTokenRepository;
+        _passwordResetTokenRepository = passwordResetTokenRepository;
         _config = config;
         _bcrypt = bcrypt;
         _token = token;
@@ -46,14 +51,13 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto, CancellationToken ct = default)
     {
-        if (await _db.Users.AnyAsync(u => u.Email == dto.Email, ct))
+        if (await _userRepository.ExistsByEmailAsync(dto.Email))
             throw new InvalidOperationException("User with this email already exists.");
 
         var user = _mapper.Map<User>(dto);
         user.PasswordHash = _bcrypt.HashPassword(dto.Password) ?? "";
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(ct);
+        await _userRepository.CreateAsync(user);
 
         // Generate tokens
         var accessToken = GenerateUserToken(user);
@@ -61,15 +65,14 @@ public sealed class AuthService : IAuthService
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(7); // 7 days
 
         var refreshToken = new RefreshToken(user.Id, refreshTokenValue, refreshTokenExpiry);
-        _db.RefreshTokens.Add(refreshToken);
-
-        await _db.SaveChangesAsync(ct);
+        await _refreshTokenRepository.CreateAsync(refreshToken);
 
         _logger.LogInformation("User {UserId} registered successfully", user.Id);
 
         return _mapper.Map<AuthResponseDto>(
             user,
-            opt => {
+            opt =>
+            {
                 opt.Items["Token"] = accessToken;
                 opt.Items["RefreshToken"] = refreshTokenValue;
             }
@@ -78,7 +81,7 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponseDto> LoginAsync(LoginDto dto, CancellationToken ct = default)
     {
-        var user = await _db.Users.SingleOrDefaultAsync(u => u.Email == dto.Email, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
 
         if (user is null || !_bcrypt.VerifyPassword(dto.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
@@ -89,15 +92,14 @@ public sealed class AuthService : IAuthService
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(7); // 7 days
 
         var refreshToken = new RefreshToken(user.Id, refreshTokenValue, refreshTokenExpiry);
-        _db.RefreshTokens.Add(refreshToken);
-
-        await _db.SaveChangesAsync(ct);
+        await _refreshTokenRepository.CreateAsync(refreshToken);
 
         _logger.LogInformation("User {UserId} logged in successfully", user.Id);
 
         return _mapper.Map<AuthResponseDto>(
             user,
-            opt => {
+            opt =>
+            {
                 opt.Items["Token"] = accessToken;
                 opt.Items["RefreshToken"] = refreshTokenValue;
             }
@@ -109,11 +111,9 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RefreshAsync(RefreshTokenDto dto, CancellationToken ct = default)
     {
-        var refreshToken = await _db.RefreshTokens
-            .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken && rt.IsActive, ct);
+        var refreshToken = await _refreshTokenRepository.GetByTokenAsync(dto.RefreshToken);
 
-        if (refreshToken == null)
+        if (refreshToken == null || !refreshToken.IsActive)
         {
             _logger.LogWarning("Invalid refresh token attempt");
             throw new UnauthorizedAccessException("Invalid refresh token.");
@@ -121,6 +121,7 @@ public sealed class AuthService : IAuthService
 
         // Revoke the old refresh token
         refreshToken.Revoke();
+        await _refreshTokenRepository.UpdateAsync(refreshToken);
 
         // Generate new tokens
         var newAccessToken = GenerateUserToken(refreshToken.User);
@@ -133,8 +134,7 @@ public sealed class AuthService : IAuthService
             refreshTokenExpiry
         );
 
-        _db.RefreshTokens.Add(newRefreshToken);
-        await _db.SaveChangesAsync(ct);
+        await _refreshTokenRepository.CreateAsync(newRefreshToken);
 
         _logger.LogInformation("Tokens refreshed for user {UserId}", refreshToken.UserId);
 
@@ -148,24 +148,24 @@ public sealed class AuthService : IAuthService
 
     public async Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken ct = default)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
         if (user == null) return; // Silently return for security
 
         // Clean up expired tokens for this user
-        var expiredTokens = await _db.PasswordResetTokens
-            .Where(t => t.Email == dto.Email && !t.IsValid)
-            .ToListAsync(ct);
+        var expiredTokens = await _passwordResetTokenRepository.GetExpiredTokensByEmailAsync(dto.Email);
 
-        _db.PasswordResetTokens.RemoveRange(expiredTokens);
+        // Delete expired tokens to keep the database clean
+        foreach (var expiredToken in expiredTokens)
+        {
+            await _passwordResetTokenRepository.DeleteAsync(expiredToken);
+        }
 
         // Generate secure reset token
         var resetTokenValue = Guid.NewGuid().ToString();
         var tokenExpiry = DateTime.UtcNow.AddHours(1); // 1 hour expiry
 
         var resetToken = new PasswordResetToken(dto.Email, resetTokenValue, tokenExpiry);
-        _db.PasswordResetTokens.Add(resetToken);
-
-        await _db.SaveChangesAsync(ct);
+        await _passwordResetTokenRepository.CreateAsync(resetToken);
 
         // Send email
         try
@@ -182,14 +182,13 @@ public sealed class AuthService : IAuthService
 
     public async Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken ct = default)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
         if (user == null) throw new InvalidOperationException("Invalid request.");
 
         // Find and validate reset token
-        var resetToken = await _db.PasswordResetTokens
-            .FirstOrDefaultAsync(t => t.Email == dto.Email && t.Token == dto.Token && t.IsValid, ct);
+        var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(dto.Token);
 
-        if (resetToken == null)
+        if (resetToken == null || resetToken.Email != dto.Email || !resetToken.IsValid)
         {
             _logger.LogWarning("Invalid password reset attempt for email {Email}", dto.Email);
             throw new UnauthorizedAccessException("Invalid or expired reset token.");
@@ -197,21 +196,20 @@ public sealed class AuthService : IAuthService
 
         // Mark token as used
         resetToken.MarkAsUsed();
+        await _passwordResetTokenRepository.UpdateAsync(resetToken);
 
         // Update password
         user.PasswordHash = _bcrypt.HashPassword(dto.NewPassword) ?? "";
+        await _userRepository.UpdateAsync(user);
 
         // Revoke all refresh tokens for security
-        var userRefreshTokens = await _db.RefreshTokens
-            .Where(rt => rt.UserId == user.Id && rt.IsActive)
-            .ToListAsync(ct);
+        var userRefreshTokens = await _refreshTokenRepository.GetActiveTokensByUserIdAsync(user.Id);
 
         foreach (var token in userRefreshTokens)
         {
             token.Revoke();
+            await _refreshTokenRepository.UpdateAsync(token);
         }
-
-        await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Password reset successfully for user {UserId}", user.Id);
     }

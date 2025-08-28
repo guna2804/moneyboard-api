@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MoneyBoard.Domain.Repositories;
 using MoneyBoard.Infrastructure.Data;
 
 namespace MoneyBoard.Infrastructure
@@ -12,6 +13,11 @@ namespace MoneyBoard.Infrastructure
             services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
             .UseSnakeCaseNamingConvention());
+
+            services.AddScoped<ILoanRepository, LoanRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 
             return services;
         }

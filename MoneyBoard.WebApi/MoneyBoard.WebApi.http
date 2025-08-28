@@ -1,6 +1,2 @@
 @MoneyBoard.WebApi_HostAddress = http://localhost:5172
 
-GET {{MoneyBoard.WebApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

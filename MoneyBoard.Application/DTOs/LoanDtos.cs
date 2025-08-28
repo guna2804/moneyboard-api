@@ -32,6 +32,7 @@ namespace MoneyBoard.Application.DTOs
         public bool AllowOverpayment { get; set; }
         public CurrencyType Currency { get; set; }
         public LoanStatus Status { get; set; }
+        public int Version { get; set; }
     }
 
     public class UpdateLoanDto
@@ -40,5 +41,14 @@ namespace MoneyBoard.Application.DTOs
         public decimal InterestRate { get; set; }
         public string RepaymentFrequency { get; set; } = string.Empty;
         public bool AllowOverpayment { get; set; }
+    }
+
+    public class PagedLoanResponseDto
+    {
+        public IEnumerable<LoanDetailsDto> Loans { get; set; } = new List<LoanDetailsDto>();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
     }
 }

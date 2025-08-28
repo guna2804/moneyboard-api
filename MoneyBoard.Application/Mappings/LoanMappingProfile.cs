@@ -21,7 +21,8 @@ namespace MoneyBoard.Application.Mappings
                 .ForMember(dest => dest.Principal, opt => opt.Ignore())
                 .ForMember(dest => dest.InterestType, opt => opt.Ignore())
                 .ForMember(dest => dest.StartDate, opt => opt.Ignore())
-                .ForMember(dest => dest.Currency, opt => opt.Ignore());
+                .ForMember(dest => dest.Currency, opt => opt.Ignore())
+                .ForMember(dest => dest.Version, opt => opt.Ignore());
         }
     }
 }

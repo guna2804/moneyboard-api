@@ -28,4 +28,8 @@
     <ProjectReference Include="..\MoneyBoard.Domain\MoneyBoard.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Configurations\" />
+  </ItemGroup>
+
 </Project>

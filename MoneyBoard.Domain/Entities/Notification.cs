@@ -6,9 +6,9 @@ namespace MoneyBoard.Domain.Entities
     public class Notification : BaseEntity
     {
         public Guid LoanId { get; set; }
-        public Loan Loan { get; set; }
+        public Loan? Loan { get; set; }
         public NotificationType Type { get; set; } // Due, Overdue, Reminder, etc.
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public bool IsRead { get; set; }
 
