@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IBCryptService, BCryptAdapterService>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IEmailService, EmailService>();
         return services;
     }
 }

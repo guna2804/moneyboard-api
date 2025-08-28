@@ -28,5 +28,26 @@ namespace MoneyBoard.WebApi.Controllers
             var result = await _authService.LoginAsync(dto);
             return Ok(result);
         }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh(RefreshTokenDto dto)
+        {
+            var result = await _authService.RefreshAsync(dto);
+            return Ok(result);
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+        {
+            await _authService.ForgotPasswordAsync(dto);
+            return Ok(new { message = "If the email exists, a reset link has been sent." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            await _authService.ResetPasswordAsync(dto);
+            return Ok(new { message = "Password has been reset successfully." });
+        }
     }
 }

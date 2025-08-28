@@ -19,7 +19,8 @@ namespace MoneyBoard.Application.Mappings
                     new AuthResponseDto(
                         user.Email,
                         user.FullName,
-                        context.Items["Token"] as string ?? string.Empty));
+                        context.Items["Token"] as string ?? string.Empty,
+                        context.Items["RefreshToken"] as string ?? string.Empty));
         }
     }
 }

@@ -3,7 +3,6 @@ using MoneyBoard.Infrastructure;
 using MoneyBoard.WebApi.Extensions;
 using MoneyBoard.WebApi.Middleware;
 using Serilog;
-using Microsoft.AspNetCore.Cors;
 
 try
 {
@@ -50,7 +49,7 @@ try
     }
 
     app.UseHttpsRedirection();
-    app.UseCors("AllowAll"); // Apply CORS policy
+    app.UseCors("AllowAll");
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();

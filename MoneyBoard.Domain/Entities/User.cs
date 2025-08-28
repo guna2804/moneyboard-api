@@ -12,6 +12,7 @@ namespace MoneyBoard.Domain.Entities
         public string Role { get; set; } = RolesType.User.ToString(); // default
         public string Timezone { get; set; } = "UTC";
         public ICollection<Loan> Loans { get; set; } = new List<Loan>();
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
         protected User()
         { }
