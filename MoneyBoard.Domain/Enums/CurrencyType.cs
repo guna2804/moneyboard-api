@@ -4,8 +4,6 @@
     {
         USD,
         EUR,
-        INR,
-        GBP,
-        JPY
+        INR
     }
 }

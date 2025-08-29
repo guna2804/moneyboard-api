@@ -6,18 +6,17 @@
         public DateTime CreatedAt { get; protected set; }
         public DateTime UpdatedAt { get; protected set; }
         public bool IsDeleted { get; protected set; } = false;
-        public byte[] RowVersion { get; set; } = [];
 
         protected BaseEntity()
         {
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
+            CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+            UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
             IsDeleted = false;
         }
 
         public void SetUpdated(Guid? updatedBy = null)
         {
-            UpdatedAt = DateTime.UtcNow;
+            UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         }
 
         public void SetDeleted(Guid? deletedBy = null)

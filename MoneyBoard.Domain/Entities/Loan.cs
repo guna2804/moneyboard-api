@@ -11,14 +11,14 @@ namespace MoneyBoard.Domain.Entities
         public decimal Principal { get; private set; }
         public decimal InterestRate { get; set; }
         public InterestType InterestType { get; set; } // e.g., enum Flat, Compound
-        public string CompoundingFrequency { get; set; } = "Monthly";
-        public DateTime StartDate { get; set; }
-        public DateTime? EndDate { get; set; }
-        public string RepaymentFrequency { get; set; } = "Monthly";
+        public CompoundingFrequencyType CompoundingFrequency { get; set; } = CompoundingFrequencyType.Monthly;
+        public DateOnly StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public RepaymentFrequencyType RepaymentFrequency { get; set; } = RepaymentFrequencyType.Monthly;
         public bool AllowOverpayment { get; set; }
         public CurrencyType Currency { get; set; } // e.g., enum USD, EUR, INR...
         public LoanStatus Status { get; set; } // e.g., Active, Overdue, Completed
-        public int Version { get; set; } = 1; // Version for amendments
+        public string? Notes { get; set; }
         public User? User { get; set; }
         public ICollection<Repayment> Repayments { get; set; } = new List<Repayment>();
         public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
@@ -26,7 +26,9 @@ namespace MoneyBoard.Domain.Entities
         protected Loan()
         { }
 
-        public Loan(Guid userId, string counterpartyName, decimal principal, decimal interestRate, InterestType type, DateTime start)
+        public Loan(Guid userId, string counterpartyName, decimal principal, decimal interestRate, InterestType type, DateOnly start,
+            CompoundingFrequencyType compoundingFrequency = CompoundingFrequencyType.Monthly,
+            RepaymentFrequencyType repaymentFrequency = RepaymentFrequencyType.Monthly)
         {
             Id = Guid.NewGuid();
             UserId = userId;
@@ -35,6 +37,8 @@ namespace MoneyBoard.Domain.Entities
             InterestRate = interestRate;
             InterestType = type;
             StartDate = start;
+            CompoundingFrequency = compoundingFrequency;
+            RepaymentFrequency = repaymentFrequency;
             Status = LoanStatus.Active;
             Repayments = new List<Repayment>();
         }

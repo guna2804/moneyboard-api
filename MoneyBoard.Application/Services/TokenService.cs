@@ -17,7 +17,8 @@ namespace MoneyBoard.Application.Services
             {
                 new(JwtRegisteredClaimNames.Sub, authenticatedUser.Email),
                 new(ClaimTypes.Name, authenticatedUser.FullName),
-                new(ClaimTypes.Role, authenticatedUser.Role ?? "User")
+                new(ClaimTypes.Role, authenticatedUser.Role ?? "User"),
+                new("userId", authenticatedUser.Id.ToString()) // Add userId claim as GUID
             };
             var token = new JwtSecurityToken(
                 issuer: issuer,

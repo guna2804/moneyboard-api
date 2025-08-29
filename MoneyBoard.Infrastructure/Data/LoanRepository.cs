@@ -99,7 +99,6 @@ namespace MoneyBoard.Infrastructure.Data
             }
 
             // Create the amended loan with incremented version
-            amendment.Version = (originalLoan?.Version ?? 0) + 1;
             context.Loans.Add(amendment);
             await context.SaveChangesAsync();
             return amendment;

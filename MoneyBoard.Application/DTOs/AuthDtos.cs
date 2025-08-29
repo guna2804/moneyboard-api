@@ -1,4 +1,6 @@
-﻿namespace MoneyBoard.Application.DTOs
+﻿using System;
+
+namespace MoneyBoard.Application.DTOs
 {
     public class RegisterDto
     {
@@ -31,7 +33,11 @@
 
     public class RefreshTokenDto
     {
+        public Guid Id { get; set; }
         public string RefreshToken { get; set; } = string.Empty;
+        public Guid UserId { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public bool IsRevoked { get; set; }
     }
 
     public class ForgotPasswordDto

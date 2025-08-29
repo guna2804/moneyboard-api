@@ -22,6 +22,8 @@ namespace MoneyBoard.WebApi.Extensions
             // Validators
             services.AddScoped<IValidator<RegisterDto>, AuthValidator.RegisterValidator>();
             services.AddScoped<IValidator<LoginDto>, AuthValidator.LoginValidator>();
+            services.AddScoped<IValidator<CreateLoanDto>, LoanValidator.CreateLoanValidator>();
+            services.AddScoped<IValidator<UpdateLoanDto>, LoanValidator.UpdateLoanValidator>();
 
             // Auth Service
             services.AddScoped<IAuthService, AuthService>();

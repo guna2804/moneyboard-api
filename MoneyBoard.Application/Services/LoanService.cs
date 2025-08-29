@@ -6,8 +6,17 @@ using MoneyBoard.Domain.Repositories;
 
 namespace MoneyBoard.Application.Services
 {
-    public class LoanService(ILoanRepository loanRepository, IMapper mapper) : ILoanService
+    public class LoanService : ILoanService
     {
+        private readonly ILoanRepository loanRepository;
+        private readonly IMapper mapper;
+
+        public LoanService(ILoanRepository loanRepository, IMapper mapper)
+        {
+            this.loanRepository = loanRepository;
+            this.mapper = mapper;
+        }
+
         public async Task<LoanDetailsDto> GetLoanByIdAsync(Guid id, Guid userId)
         {
             var loan = await loanRepository.GetByIdAsync(id);
@@ -42,6 +51,8 @@ namespace MoneyBoard.Application.Services
         {
             var loan = mapper.Map<Loan>(dto);
             loan.UserId = userId;
+            loan.StartDate = dto.StartDate;
+            loan.EndDate = dto.EndDate;
 
             var createdLoan = await loanRepository.CreateAsync(loan);
             return mapper.Map<LoanDetailsDto>(createdLoan);
@@ -55,7 +66,25 @@ namespace MoneyBoard.Application.Services
                 throw new KeyNotFoundException("Loan not found or access denied.");
             }
 
-            mapper.Map(dto, existingLoan);
+            bool hasRepayments = existingLoan.Repayments != null && existingLoan.Repayments.Any();
+
+            if (hasRepayments)
+            {
+                existingLoan.CounterpartyName = dto.CounterpartyName;
+                existingLoan.Role = dto.Role;
+                existingLoan.EndDate = dto.EndDate;
+                existingLoan.RepaymentFrequency = dto.RepaymentFrequency;
+                existingLoan.AllowOverpayment = dto.AllowOverpayment;
+                existingLoan.Currency = dto.Currency;
+                existingLoan.Notes = dto.Notes;
+            }
+            else
+            {
+                mapper.Map(dto, existingLoan);
+                existingLoan.StartDate = dto.StartDate;
+                existingLoan.EndDate = dto.EndDate;
+            }
+            
             var updatedLoan = await loanRepository.UpdateAsync(existingLoan);
             return mapper.Map<LoanDetailsDto>(updatedLoan);
         }
@@ -71,7 +100,7 @@ namespace MoneyBoard.Application.Services
             await loanRepository.SoftDeleteAsync(id);
         }
 
-        public async Task<LoanDetailsDto> AmendLoanAsync(Guid id, UpdateLoanDto dto, Guid userId)
+        public async Task<LoanDetailsDto> AmendLoanAsync(Guid id, AmendLoanDto dto, Guid userId)
         {
             var existingLoan = await loanRepository.GetByIdAsync(id);
             if (existingLoan == null || existingLoan.UserId != userId)
@@ -79,26 +108,43 @@ namespace MoneyBoard.Application.Services
                 throw new KeyNotFoundException("Loan not found or access denied.");
             }
 
-            // Create a new loan based on the existing one with amendments
+            // Create a new loan version for amendment
             var amendedLoan = new Loan(
                 existingLoan.UserId,
-                dto.CounterpartyName ?? existingLoan.CounterpartyName,
+                existingLoan.CounterpartyName,
                 existingLoan.Principal,
                 dto.InterestRate,
-                existingLoan.InterestType,
-                existingLoan.StartDate
+                dto.InterestType,
+                existingLoan.StartDate  // StartDate is copied from existing loan
             )
             {
-                CompoundingFrequency = existingLoan.CompoundingFrequency,
-                EndDate = existingLoan.EndDate,
-                RepaymentFrequency = dto.RepaymentFrequency ?? existingLoan.RepaymentFrequency,
+                CompoundingFrequency = dto.CompoundingFrequency,
+                EndDate = dto.EndDate,
+                RepaymentFrequency = dto.RepaymentFrequency,
                 AllowOverpayment = dto.AllowOverpayment,
-                Currency = existingLoan.Currency,
-                Status = existingLoan.Status
+                Currency = dto.Currency,
+                Status = existingLoan.Status,
+                Notes = dto.Notes
             };
 
             var createdAmendment = await loanRepository.AmendAsync(id, amendedLoan);
             return mapper.Map<LoanDetailsDto>(createdAmendment);
+        }
+
+        public async Task<LoanDetailsDto> AmendLoanAsync(Guid id, UpdateLoanDto dto, Guid userId)
+        {
+            var amendDto = new AmendLoanDto
+            {
+                InterestRate = dto.InterestRate,
+                InterestType = dto.InterestType,
+                CompoundingFrequency = dto.CompoundingFrequency,
+                EndDate = dto.EndDate,
+                RepaymentFrequency = dto.RepaymentFrequency,
+                AllowOverpayment = dto.AllowOverpayment,
+                Currency = dto.Currency,
+                Notes = dto.Notes
+            };
+            return await AmendLoanAsync(id, amendDto, userId);
         }
     }
 }
