@@ -26,8 +26,7 @@ namespace MoneyBoard.Application.Validators
                 RuleFor(x => x.InterestType)
                     .IsInEnum().WithMessage("Invalid interest type.");
 
-                RuleFor(x => x.CompoundingFrequency)
-                    .IsInEnum().WithMessage("Invalid compounding frequency.");
+
 
                 RuleFor(x => x.StartDate)
                     .NotEmpty().WithMessage("Start date is required.");

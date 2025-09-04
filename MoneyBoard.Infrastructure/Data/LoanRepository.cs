@@ -16,25 +16,20 @@ namespace MoneyBoard.Infrastructure.Data
                 .FirstOrDefaultAsync(l => l.Id == id && !l.IsDeleted);
         }
 
-        public async Task<IEnumerable<Loan>> GetLoansAsync(string? role, string? status, int page, int pageSize)
+        public async Task<IEnumerable<Loan>> GetLoansAsync(string? role, string? status, int page, int pageSize, Guid userId)
         {
             var query = context.Loans
-                .Include(l => l.User)
                 .Include(l => l.Repayments)
-                .Include(l => l.Notifications)
-                .Where(l => !l.IsDeleted);
+                .Where(l => !l.IsDeleted && l.UserId == userId);
 
             if (!string.IsNullOrEmpty(role))
-            {
                 query = query.Where(l => l.Role == role);
-            }
 
             if (!string.IsNullOrEmpty(status))
             {
+                status = status.Trim();
                 if (Enum.TryParse<LoanStatus>(status, true, out var loanStatus))
-                {
                     query = query.Where(l => l.Status == loanStatus);
-                }
             }
 
             return await query
@@ -44,21 +39,18 @@ namespace MoneyBoard.Infrastructure.Data
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalLoansCountAsync(string? role, string? status)
+        public async Task<int> GetTotalLoansCountAsync(string? role, string? status, Guid userId)
         {
-            var query = context.Loans.Where(l => !l.IsDeleted);
+            var query = context.Loans.AsNoTracking().Where(l => !l.IsDeleted && l.UserId == userId);
 
             if (!string.IsNullOrEmpty(role))
-            {
                 query = query.Where(l => l.Role == role);
-            }
 
             if (!string.IsNullOrEmpty(status))
             {
+                status = status.Trim();
                 if (Enum.TryParse<LoanStatus>(status, true, out var loanStatus))
-                {
                     query = query.Where(l => l.Status == loanStatus);
-                }
             }
 
             return await query.CountAsync();
@@ -91,17 +83,48 @@ namespace MoneyBoard.Infrastructure.Data
 
         public async Task<Loan> AmendAsync(Guid id, Loan amendment)
         {
+            // Get the original loan with repayments
+            var originalLoan = await context.Loans
+                .Include(l => l.Repayments.Where(r => !r.IsDeleted))
+                .FirstOrDefaultAsync(l => l.Id == id && !l.IsDeleted);
+
+            if (originalLoan == null)
+                throw new KeyNotFoundException("Original loan not found.");
+
             // Soft delete the original loan
-            var originalLoan = await context.Loans.FindAsync(id);
-            if (originalLoan != null)
+            originalLoan.SetDeleted();
+            context.Loans.Update(originalLoan);
+
+            // Create the amended loan
+            context.Loans.Add(amendment);
+
+            // Copy existing repayments to the new loan (only non-deleted ones)
+            foreach (var repayment in originalLoan.Repayments.Where(r => !r.IsDeleted))
             {
-                originalLoan.SetDeleted();
+                var newRepayment = new Repayment(
+                    loanId: amendment.Id,
+                    amount: repayment.Amount,
+                    repaymentDate: repayment.RepaymentDate,
+                    interestComponent: repayment.InterestComponent,
+                    principalComponent: repayment.PrincipalComponent,
+                    notes: repayment.Notes
+                );
+                // Note: New repayment will get current timestamps since it's a new entity
+                context.Repayments.Add(newRepayment);
             }
 
-            // Create the amended loan with incremented version
-            context.Loans.Add(amendment);
             await context.SaveChangesAsync();
             return amendment;
+        }
+
+        public async Task<IEnumerable<Loan>> GetActiveLoansAsync(Guid userId)
+        {
+            return await context.Loans
+                .Include(l => l.User)
+                .Include(l => l.Repayments)
+                .Where(l => !l.IsDeleted && l.UserId == userId && l.Status != LoanStatus.Completed)
+                .OrderByDescending(l => l.CreatedAt)
+                .ToListAsync();
         }
     }
 }

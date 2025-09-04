@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
+using MoneyBoard.Application.Validators;
 
 namespace MoneyBoard.WebApi.Controllers
 {
@@ -27,6 +28,16 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.GetLoanByIdAsync(loanId, userId);
+            return Ok(result);
+        }
+
+        [HttpGet("with-outstanding")]
+        public async Task<IActionResult> GetLoansWithOutstanding(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 25)
+        {
+            var userId = GetCurrentUserId();
+            var result = await loanService.GetLoansWithOutstandingRepaymentsAsync(userId, page, pageSize);
             return Ok(result);
         }
 

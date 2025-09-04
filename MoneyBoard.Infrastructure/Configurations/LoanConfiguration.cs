@@ -20,10 +20,6 @@ namespace MoneyBoard.Infrastructure.Configurations
                 .HasConversion<string>()
                 .HasColumnType("text");
 
-            builder.Property(l => l.CompoundingFrequency)
-                .HasConversion<string>()
-                .HasColumnType("text");
-
             builder.Property(l => l.RepaymentFrequency)
                 .HasConversion<string>()
                 .HasColumnType("text");

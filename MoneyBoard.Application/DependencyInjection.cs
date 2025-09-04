@@ -14,6 +14,8 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ILoanService, LoanService>();
+        services.AddScoped<IRepaymentService, RepaymentService>();
+        services.AddScoped<IAuditService, AuditService>();
         return services;
     }
 }

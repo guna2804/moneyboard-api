@@ -3,6 +3,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Application.Mappings;
@@ -25,8 +26,6 @@ namespace MoneyBoard.WebApi.Extensions
             services.AddScoped<IValidator<CreateLoanDto>, LoanValidator.CreateLoanValidator>();
             services.AddScoped<IValidator<UpdateLoanDto>, LoanValidator.UpdateLoanValidator>();
 
-            // Auth Service
-            services.AddScoped<IAuthService, AuthService>();
 
             // JWT Authentication
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -48,7 +47,32 @@ namespace MoneyBoard.WebApi.Extensions
 
             // Swagger
             services.AddEndpointsApiExplorer();
-            services.AddSwaggerGen();
+            services.AddSwaggerGen(options =>
+            {
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        new string[] {}
+                    }
+                });
+            });
             var mappingConfig = new MapperConfiguration(cfg =>
             {
                 cfg.AddMaps(Assembly.GetAssembly(typeof(BaseMappingProfile)));

@@ -2,17 +2,17 @@ namespace MoneyBoard.Domain.Enums
 {
     public enum CompoundingFrequencyType
     {
-        Monthly,
-        Quarterly,
-        SemiAnnual,
-        Annual
+        None = 0,     
+        Monthly = 1,
+        Quarterly = 2,  
+        Yearly = 3      
     }
 
     public enum RepaymentFrequencyType
     {
-        Monthly,
-        Quarterly,
-        SemiAnnual,
-        Annual
+        Monthly = 0,
+        Quarterly = 1,
+        Yearly = 2,
+        LumpSum = 3
     }
 }

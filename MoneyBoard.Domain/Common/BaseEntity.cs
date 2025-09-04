@@ -19,6 +19,11 @@
             UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         }
 
+        public void SetCreated(Guid? createdBy = null)
+        {
+            CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        }
+
         public void SetDeleted(Guid? deletedBy = null)
         {
             IsDeleted = true;

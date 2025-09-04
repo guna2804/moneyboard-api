@@ -10,5 +10,6 @@ namespace MoneyBoard.Application.Interfaces
         Task<LoanDetailsDto> UpdateLoanAsync(Guid id, UpdateLoanDto dto, Guid userId);
         Task DeleteLoanAsync(Guid id, Guid userId);
         Task<LoanDetailsDto> AmendLoanAsync(Guid id, UpdateLoanDto dto, Guid userId);
+        Task<OutstandingLoansResponseDto> GetLoansWithOutstandingRepaymentsAsync(Guid userId, int page, int pageSize);
     }
 }

@@ -15,6 +15,8 @@ namespace MoneyBoard.Infrastructure
             .UseSnakeCaseNamingConvention());
 
             services.AddScoped<ILoanRepository, LoanRepository>();
+            services.AddScoped<IRepaymentRepository, RepaymentRepository>();
+            services.AddScoped<IAuditLogRepository, AuditLogRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
