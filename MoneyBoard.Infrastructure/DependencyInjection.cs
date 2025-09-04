@@ -10,9 +10,15 @@ namespace MoneyBoard.Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
+            var envConnectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+            var connectionString = !string.IsNullOrEmpty(envConnectionString)
+                ? envConnectionString
+                : configuration.GetConnectionString("DefaultConnection");
+
             services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
-            .UseSnakeCaseNamingConvention());
+                options.UseNpgsql(connectionString)
+                       .UseSnakeCaseNamingConvention());
 
             services.AddScoped<ILoanRepository, LoanRepository>();
             services.AddScoped<IRepaymentRepository, RepaymentRepository>();
