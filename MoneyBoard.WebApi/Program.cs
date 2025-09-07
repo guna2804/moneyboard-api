@@ -21,14 +21,30 @@ try
 
     builder.Services.AddControllers();
 
-    // Add CORS policy to allow all
+    // Determine allowed origins based on environment
+    var allowedOrigins = builder.Environment.IsDevelopment()
+        ? new[] { "*" } // Allow all in development
+        : new[] { "https://smart-loan-tracker.vercel.app" };
+
+    // Add CORS policy to allow specific origins
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("AllowAll", builder =>
+        options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
         {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
+            if (allowedOrigins.Contains("*"))
+            {
+                policyBuilder.AllowAnyOrigin()
+                             .AllowAnyMethod()
+                             .AllowAnyHeader()
+                             .AllowCredentials();
+            }
+            else
+            {
+                policyBuilder.WithOrigins(allowedOrigins)
+                             .AllowAnyMethod()
+                             .AllowAnyHeader()
+                             .AllowCredentials();
+            }
         });
     });
 
@@ -39,6 +55,7 @@ try
 
     var app = builder.Build();
 
+    app.UseMiddleware<CorsLoggingMiddleware>();
     app.UseMiddleware<GlobalExceptionHandler>();
     app.UseSerilogRequestLogging();
 
@@ -49,7 +66,7 @@ try
     }
 
     app.UseHttpsRedirection();
-    app.UseCors("AllowAll");
+    app.UseCors("AllowSpecificOrigins");
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
