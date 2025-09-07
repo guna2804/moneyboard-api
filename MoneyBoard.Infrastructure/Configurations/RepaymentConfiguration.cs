@@ -34,6 +34,11 @@ namespace MoneyBoard.Infrastructure.Configurations
                 .HasMaxLength(1000)
                 .IsRequired(false);
 
+            builder.Property(r => r.Status)
+                 .HasConversion<string>()
+                 .HasColumnType("text")
+                 .IsRequired();
+
             builder.Property(r => r.IsDeleted)
                 .IsRequired()
                 .HasDefaultValue(false);

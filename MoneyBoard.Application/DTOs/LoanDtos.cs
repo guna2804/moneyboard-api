@@ -82,7 +82,8 @@ namespace MoneyBoard.Application.DTOs
         public bool AllowOverpayment { get; set; }
         public DateOnly? NextDueDate { get; set; }
         public decimal EmiAmount { get; set; }
-        public string UserName { get; set; } = string.Empty;
+        public string? BorrowerName { get; set; }
+        public string? LenderName { get; set; }
         public string Role { get; set; } = string.Empty;
     }
 

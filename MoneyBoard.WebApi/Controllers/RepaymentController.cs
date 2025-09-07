@@ -37,7 +37,13 @@ namespace MoneyBoard.WebApi.Controllers
 
             var userId = GetCurrentUserId();
             var result = await repaymentService.CreateRepaymentAsync(loanId, request, userId);
-            return CreatedAtAction(nameof(GetRepayments), new { loanId }, result);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(new { code = "REPAYMENT_ERROR", message = result.ErrorMessage });
+            }
+
+            return CreatedAtAction(nameof(GetRepayments), new { loanId }, result.Data);
         }
 
         [HttpPut("{repaymentId}")]
@@ -53,7 +59,13 @@ namespace MoneyBoard.WebApi.Controllers
 
             var userId = GetCurrentUserId();
             var result = await repaymentService.UpdateRepaymentAsync(loanId, repaymentId, request, userId);
-            return Ok(result);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(new { code = "REPAYMENT_ERROR", message = result.ErrorMessage });
+            }
+
+            return Ok(result.Data);
         }
 
         [HttpDelete("{repaymentId}")]
@@ -62,6 +74,25 @@ namespace MoneyBoard.WebApi.Controllers
             var userId = GetCurrentUserId();
             await repaymentService.DeleteRepaymentAsync(loanId, repaymentId, userId);
             return NoContent();
+        }
+
+        [HttpGet("summary")]
+        public async Task<IActionResult> GetRepaymentSummary([FromQuery] string role = "all")
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var result = await repaymentService.GetRepaymentSummaryAsync(role, userId);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { code = "INVALID_ROLE", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { code = "INTERNAL_ERROR", message = "An unexpected error occurred.", details = ex.Message });
+            }
         }
 
         private Guid GetCurrentUserId()

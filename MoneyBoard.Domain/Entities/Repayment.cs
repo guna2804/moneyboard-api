@@ -1,4 +1,5 @@
 ﻿using MoneyBoard.Domain.Common;
+using MoneyBoard.Domain.Enums;
 
 namespace MoneyBoard.Domain.Entities
 {
@@ -13,12 +14,13 @@ namespace MoneyBoard.Domain.Entities
 
         public DateTime RepaymentDate { get; private set; }
         public string? Notes { get; private set; }
+        public RepaymentStatus Status { get; private set; }
 
         protected Repayment()
         { } // EF
 
         public Repayment(Guid loanId, decimal amount, DateTime repaymentDate,
-                         decimal interestComponent, decimal principalComponent, string? notes = null)
+                          decimal interestComponent, decimal principalComponent, DateTime nextDueDate, string? notes = null)
         {
             if (amount <= 0)
                 throw new ArgumentException("Repayment amount must be greater than 0.", nameof(amount));
@@ -30,11 +32,14 @@ namespace MoneyBoard.Domain.Entities
             InterestComponent = Math.Round(interestComponent, 2, MidpointRounding.ToEven);
             PrincipalComponent = Math.Round(principalComponent, 2, MidpointRounding.ToEven);
             Notes = notes;
+            Status = repaymentDate.Date < nextDueDate.Date ? RepaymentStatus.Early :
+                     repaymentDate.Date == nextDueDate.Date ? RepaymentStatus.OnTime :
+                     RepaymentStatus.Late;
             SetCreated();
         }
 
         public void Update(decimal amount, DateTime repaymentDate, string? notes,
-                           decimal interestComponent, decimal principalComponent)
+                            decimal interestComponent, decimal principalComponent, DateTime nextDueDate)
         {
             if (amount <= 0)
                 throw new ArgumentException("Repayment amount must be greater than 0.", nameof(amount));
@@ -44,6 +49,9 @@ namespace MoneyBoard.Domain.Entities
             Notes = notes;
             InterestComponent = Math.Round(interestComponent, 2, MidpointRounding.ToEven);
             PrincipalComponent = Math.Round(principalComponent, 2, MidpointRounding.ToEven);
+            Status = repaymentDate.Date < nextDueDate.Date ? RepaymentStatus.Early :
+                     repaymentDate.Date == nextDueDate.Date ? RepaymentStatus.OnTime :
+                     RepaymentStatus.Late;
             SetUpdated();
         }
 

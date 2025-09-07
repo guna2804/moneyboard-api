@@ -10,7 +10,8 @@ namespace MoneyBoard.Application.Mappings
         {
             CreateMap<Repayment, RepaymentDto>()
                 .ForMember(d => d.InterestComponent, o => o.MapFrom(s => s.InterestComponent))
-                .ForMember(d => d.PrincipalComponent, o => o.MapFrom(s => s.PrincipalComponent));
+                .ForMember(d => d.PrincipalComponent, o => o.MapFrom(s => s.PrincipalComponent))
+                .ForMember(d => d.Status, o => o.MapFrom(s => s.Status));
 
             CreateMap<Repayment, RepaymentResponseDto>()
                 .IncludeBase<Repayment, RepaymentDto>();

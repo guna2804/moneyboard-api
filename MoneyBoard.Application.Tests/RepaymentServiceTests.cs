@@ -47,7 +47,8 @@ namespace MoneyBoard.Application.Tests
 
             var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow));
 
-            var repayment = new Repayment(loanId, request.Amount, request.RepaymentDate);
+            var nextDueDate = DateTime.UtcNow.AddMonths(1);
+            var repayment = new Repayment(loanId, request.Amount, request.RepaymentDate, 0, 0, nextDueDate);
             var response = new RepaymentResponseDto { Id = repayment.Id, Amount = request.Amount };
 
             _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
@@ -112,7 +113,7 @@ namespace MoneyBoard.Application.Tests
             var userId = Guid.NewGuid();
             var repayments = new List<Repayment>
             {
-                new Repayment(loanId, 1000, DateTime.UtcNow)
+                new Repayment(loanId, 1000, DateTime.UtcNow, 0, 0, DateTime.UtcNow.AddMonths(1))
             };
             var repaymentDtos = new List<RepaymentDto>
             {
@@ -156,7 +157,7 @@ namespace MoneyBoard.Application.Tests
             // Mock existing repayment in the same month
             var existingRepayments = new List<Repayment>
             {
-                new Repayment(loanId, 1000, repaymentDate.AddDays(-5)) // Same month
+                new Repayment(loanId, 1000, repaymentDate.AddDays(-5), 0, 0, repaymentDate.AddMonths(1)) // Same month
             };
 
             _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
@@ -235,7 +236,7 @@ namespace MoneyBoard.Application.Tests
             // Mock existing repayment for lump sum
             var existingRepayments = new List<Repayment>
             {
-                new Repayment(loanId, 1000, DateTime.UtcNow.AddDays(-30))
+                new Repayment(loanId, 1000, DateTime.UtcNow.AddDays(-30), 0, 0, DateTime.UtcNow.AddMonths(1))
             };
 
             _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
@@ -266,12 +267,12 @@ namespace MoneyBoard.Application.Tests
             var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow));
             loan.RepaymentFrequency = Domain.Enums.RepaymentFrequencyType.Monthly;
 
-            var existingRepayment = new Repayment(loanId, 500, repaymentDate.AddDays(-10));
+            var existingRepayment = new Repayment(loanId, 500, repaymentDate.AddDays(-10), 0, 0, repaymentDate.AddMonths(1));
 
             // Mock existing repayment in the same month (different from the one being updated)
             var existingRepayments = new List<Repayment>
             {
-                new Repayment(loanId, 1000, repaymentDate.AddDays(-5)), // Same month, different repayment
+                new Repayment(loanId, 1000, repaymentDate.AddDays(-5), 0, 0, repaymentDate.AddMonths(1)), // Same month, different repayment
                 existingRepayment
             };
 

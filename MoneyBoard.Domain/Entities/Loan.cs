@@ -25,6 +25,21 @@ namespace MoneyBoard.Domain.Entities
 
         public bool HasRepaymentStarted => Repayments != null && Repayments.Any(r => !r.IsDeleted);
 
+        public DateTime GetNextDueDate()
+        {
+            var lastRepayment = Repayments?.Where(r => !r.IsDeleted).OrderByDescending(r => r.RepaymentDate).FirstOrDefault();
+            var baseDate = lastRepayment?.RepaymentDate ?? StartDate.ToDateTime(TimeOnly.MinValue);
+
+            return RepaymentFrequency switch
+            {
+                RepaymentFrequencyType.Monthly => baseDate.AddMonths(1),
+                RepaymentFrequencyType.Quarterly => baseDate.AddMonths(3),
+                RepaymentFrequencyType.Yearly => baseDate.AddYears(1),
+                RepaymentFrequencyType.LumpSum => EndDate?.ToDateTime(TimeOnly.MinValue) ?? baseDate.AddYears(1),
+                _ => baseDate.AddMonths(1)
+            };
+        }
+
         protected Loan()
         { }
 
@@ -43,7 +58,13 @@ namespace MoneyBoard.Domain.Entities
             Repayments = new List<Repayment>();
         }
 
-        public void SetPrincipal(decimal principal) => Principal = principal;
+        public void SetPrincipal(decimal principal)
+        {
+            if (HasRepaymentStarted)
+                throw new InvalidOperationException("PRINCIPAL_LOCKED_AFTER_REPAYMENTS");
+
+            Principal = principal;
+        }
 
         public decimal CalculateTotalAmount()
         {
@@ -131,8 +152,19 @@ namespace MoneyBoard.Domain.Entities
 
             var balance = outstandingPrincipal + outstandingInterest;
 
+            // Update status based on balance and due date
             if (balance <= 0)
+            {
                 Status = LoanStatus.Completed;
+            }
+            else if (EndDate.HasValue && asOfDate.Date > EndDate.Value.ToDateTime(TimeOnly.MinValue) && balance > 0)
+            {
+                Status = LoanStatus.Overdue;
+            }
+            else
+            {
+                Status = LoanStatus.Active;
+            }
 
             return Math.Round(balance, 2, MidpointRounding.ToEven);
         }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MoneyBoard.Domain.Entities;
+using MoneyBoard.Domain.Enums;
 using MoneyBoard.Domain.Repositories;
 
 namespace MoneyBoard.Infrastructure.Data
@@ -114,6 +115,18 @@ namespace MoneyBoard.Infrastructure.Data
                 repayment.SoftDelete();
                 await UpdateRepaymentAsync(repayment);
             }
+        }
+
+        public async Task<IEnumerable<Repayment>> GetRepaymentsByUserRoleAsync(Guid userId, string userRole)
+        {
+            return await context.Repayments
+                .Include(r => r.Loan)
+                .Where(r => !r.IsDeleted &&
+                           r.Loan != null &&
+                           !r.Loan.IsDeleted &&
+                           r.Loan.UserId == userId &&
+                           r.Loan.Role == userRole)
+                .ToListAsync();
         }
 
         public Task<int> SaveChangesAsync() => context.SaveChangesAsync();

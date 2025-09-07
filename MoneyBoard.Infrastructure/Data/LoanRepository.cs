@@ -23,7 +23,9 @@ namespace MoneyBoard.Infrastructure.Data
                 .Where(l => !l.IsDeleted && l.UserId == userId);
 
             if (!string.IsNullOrEmpty(role))
+            {
                 query = query.Where(l => l.Role == role);
+            }
 
             if (!string.IsNullOrEmpty(status))
             {
@@ -44,7 +46,9 @@ namespace MoneyBoard.Infrastructure.Data
             var query = context.Loans.AsNoTracking().Where(l => !l.IsDeleted && l.UserId == userId);
 
             if (!string.IsNullOrEmpty(role))
+            {
                 query = query.Where(l => l.Role == role);
+            }
 
             if (!string.IsNullOrEmpty(status))
             {
@@ -101,12 +105,14 @@ namespace MoneyBoard.Infrastructure.Data
             // Copy existing repayments to the new loan (only non-deleted ones)
             foreach (var repayment in originalLoan.Repayments.Where(r => !r.IsDeleted))
             {
+                var nextDueDate = amendment.GetNextDueDate();
                 var newRepayment = new Repayment(
                     loanId: amendment.Id,
                     amount: repayment.Amount,
                     repaymentDate: repayment.RepaymentDate,
                     interestComponent: repayment.InterestComponent,
                     principalComponent: repayment.PrincipalComponent,
+                    nextDueDate: nextDueDate,
                     notes: repayment.Notes
                 );
                 // Note: New repayment will get current timestamps since it's a new entity

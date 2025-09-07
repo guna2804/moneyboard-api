@@ -186,7 +186,8 @@ namespace MoneyBoard.Application.Services
                 AllowOverpayment = l.AllowOverpayment,
                 NextDueDate = CalculateNextDueDate(l),
                 EmiAmount = CalculateEmiAmount(l),
-                UserName = l.User?.FullName ?? string.Empty,
+                BorrowerName = l.Role == LoanRole.Lender.ToString() ? l.CounterpartyName : null,
+                LenderName = l.Role == LoanRole.Borrower.ToString() ? l.CounterpartyName : null,
                 Role = l.Role
             }).ToList();
 

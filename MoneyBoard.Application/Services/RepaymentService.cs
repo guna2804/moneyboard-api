@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Domain.Entities;
+using MoneyBoard.Domain.Enums;
 using MoneyBoard.Domain.Repositories;
 
 namespace MoneyBoard.Application.Services
@@ -29,25 +30,26 @@ namespace MoneyBoard.Application.Services
             _logger = logger;
         }
 
-        public async Task<RepaymentResponseDto> CreateRepaymentAsync(Guid loanId, CreateRepaymentRequestDto request, Guid userId)
+        public async Task<RepaymentResult> CreateRepaymentAsync(Guid loanId, CreateRepaymentRequestDto request, Guid userId)
         {
             _logger.LogInformation("Creating repayment for loan {LoanId}, amount: {Amount}", loanId, request.Amount);
 
-            var loan = await _loanRepository.GetByIdAsync(loanId)
-                ?? throw new KeyNotFoundException("Loan not found.");
+            var loan = await _loanRepository.GetByIdAsync(loanId);
+            if (loan == null)
+                return RepaymentResult.Error("Loan not found.");
 
             if (loan.UserId != userId)
-                throw new KeyNotFoundException("Loan not found or access denied.");
+                return RepaymentResult.Error("Loan not found or access denied.");
 
             if (loan.Status == Domain.Enums.LoanStatus.Completed)
-                throw new InvalidOperationException("Cannot create repayment for a completed loan.");
+                return RepaymentResult.Error("Cannot create repayment for a completed loan.");
 
             if (request.RepaymentDate.Date < loan.StartDate.ToDateTime(TimeOnly.MinValue).Date)
-                throw new InvalidOperationException("Repayment date cannot be before loan start date.");
+                return RepaymentResult.Error("Repayment date cannot be before loan start date.");
 
             // Check for existing repayment in the same period based on frequency
             if (await HasRepaymentInSamePeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency))
-                throw new InvalidOperationException($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
+                return RepaymentResult.Error($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
 
             // Additional date validations
             ValidateRepaymentDate(request.RepaymentDate, loan);
@@ -55,12 +57,15 @@ namespace MoneyBoard.Application.Services
             var (interestPortion, principalPortion, remaining) =
                 loan.AllocateRepayment(request.Amount, request.RepaymentDate, loan.AllowOverpayment);
 
+            var nextDueDate = loan.GetNextDueDate();
+
             var repayment = new Repayment(
                 loanId: loanId,
                 amount: request.Amount,
                 repaymentDate: request.RepaymentDate,
                 interestComponent: interestPortion,
                 principalComponent: principalPortion,
+                nextDueDate: nextDueDate,
                 notes: request.Notes
             );
 
@@ -77,27 +82,29 @@ namespace MoneyBoard.Application.Services
 
             var dto = _mapper.Map<RepaymentResponseDto>(repayment);
             dto.NewBalance = loan.CalculateOutstandingBalance(request.RepaymentDate);
-            return dto;
+            return RepaymentResult.Success(dto);
         }
 
-        public async Task<RepaymentResponseDto> UpdateRepaymentAsync(Guid loanId, Guid repaymentId, UpdateRepaymentRequestDto request, Guid userId)
+        public async Task<RepaymentResult> UpdateRepaymentAsync(Guid loanId, Guid repaymentId, UpdateRepaymentRequestDto request, Guid userId)
         {
             _logger.LogInformation("Updating repayment {RepaymentId} for loan {LoanId}", repaymentId, loanId);
 
-            var loan = await _loanRepository.GetByIdAsync(loanId)
-                ?? throw new KeyNotFoundException("Loan not found.");
+            var loan = await _loanRepository.GetByIdAsync(loanId);
+            if (loan == null)
+                return RepaymentResult.Error("Loan not found.");
 
             if (loan.UserId != userId)
-                throw new KeyNotFoundException("Loan not found or access denied.");
+                return RepaymentResult.Error("Loan not found or access denied.");
 
             if (loan.Status == Domain.Enums.LoanStatus.Completed)
-                throw new InvalidOperationException("Cannot update repayment for a completed loan.");
+                return RepaymentResult.Error("Cannot update repayment for a completed loan.");
 
-            var repayment = await _repaymentRepository.GetByIdAsync(repaymentId)
-                ?? throw new KeyNotFoundException("Repayment not found.");
+            var repayment = await _repaymentRepository.GetByIdAsync(repaymentId);
+            if (repayment == null)
+                return RepaymentResult.Error("Repayment not found.");
 
             if (repayment.LoanId != loanId)
-                throw new KeyNotFoundException("Repayment not found for the provided loan.");
+                return RepaymentResult.Error("Repayment not found for the provided loan.");
 
             var oldAmount = repayment.Amount;
 
@@ -112,12 +119,15 @@ namespace MoneyBoard.Application.Services
             var (interestPortion, principalPortion, remaining) =
                 loan.AllocateRepayment(request.Amount, request.RepaymentDate, loan.AllowOverpayment);
 
+            var nextDueDate = loan.GetNextDueDate();
+
             repayment.Update(
                 amount: request.Amount,
                 repaymentDate: request.RepaymentDate,
                 notes: request.Notes,
                 interestComponent: interestPortion,
-                principalComponent: principalPortion
+                principalComponent: principalPortion,
+                nextDueDate: nextDueDate
             );
 
             await _repaymentRepository.UpdateRepaymentAsync(repayment);
@@ -133,7 +143,7 @@ namespace MoneyBoard.Application.Services
 
             var dto = _mapper.Map<RepaymentResponseDto>(repayment);
             dto.NewBalance = loan.CalculateOutstandingBalance(request.RepaymentDate);
-            return dto;
+            return RepaymentResult.Success(dto);
         }
 
         public async Task<PagedRepaymentResponseDto> GetRepaymentsAsync(Guid loanId, int page, int pageSize, string? sortBy, string? filter, Guid userId)
@@ -237,6 +247,69 @@ namespace MoneyBoard.Application.Services
             var firstPossibleRepayment = loan.StartDate.ToDateTime(TimeOnly.MinValue);
             if (repaymentDate < firstPossibleRepayment)
                 throw new InvalidOperationException("Repayment date cannot be before the loan's start date.");
+        }
+
+        public async Task<RepaymentSummaryDto> GetRepaymentSummaryAsync(string role, Guid userId)
+        {
+            _logger.LogInformation("Getting repayment summary for user {UserId} with role filter: {Role}", userId, role);
+
+            // Validate role parameter
+            if (role != "lending" && role != "borrowing" && role != "all")
+                throw new ArgumentException("Invalid role parameter. Must be 'lending', 'borrowing', or 'all'");
+
+            var summary = new RepaymentSummaryDto();
+
+            if (role == "lending" || role == "all")
+            {
+                // Get lending summary (user is lender, receiving repayments)
+                var lendingRepayments = await _repaymentRepository.GetRepaymentsByUserRoleAsync(userId, "Lender");
+                var lendingBreakdown = new RepaymentBreakdownDto
+                {
+                    TotalPayments = lendingRepayments.Sum(r => r.Amount),
+                    TotalInterest = lendingRepayments.Sum(r => r.InterestComponent),
+                    TotalPrincipal = lendingRepayments.Sum(r => r.PrincipalComponent)
+                };
+
+                if (role == "lending")
+                {
+                    summary.TotalPayments = lendingBreakdown.TotalPayments;
+                    summary.TotalInterest = lendingBreakdown.TotalInterest;
+                    summary.TotalPrincipal = lendingBreakdown.TotalPrincipal;
+                }
+                else // role == "all"
+                {
+                    summary.LendingBreakdown = lendingBreakdown;
+                }
+            }
+
+            if (role == "borrowing" || role == "all")
+            {
+                // Get borrowing summary (user is borrower, making repayments)
+                var borrowingRepayments = await _repaymentRepository.GetRepaymentsByUserRoleAsync(userId, "Borrower");
+                var borrowingBreakdown = new RepaymentBreakdownDto
+                {
+                    TotalPayments = borrowingRepayments.Sum(r => r.Amount),
+                    TotalInterest = borrowingRepayments.Sum(r => r.InterestComponent),
+                    TotalPrincipal = borrowingRepayments.Sum(r => r.PrincipalComponent)
+                };
+
+                if (role == "borrowing")
+                {
+                    summary.TotalPayments = borrowingBreakdown.TotalPayments;
+                    summary.TotalInterest = borrowingBreakdown.TotalInterest;
+                    summary.TotalPrincipal = borrowingBreakdown.TotalPrincipal;
+                }
+                else // role == "all"
+                {
+                    summary.BorrowingBreakdown = borrowingBreakdown;
+                    // Combine totals for "all" role
+                    summary.TotalPayments = (summary.LendingBreakdown?.TotalPayments ?? 0) + borrowingBreakdown.TotalPayments;
+                    summary.TotalInterest = (summary.LendingBreakdown?.TotalInterest ?? 0) + borrowingBreakdown.TotalInterest;
+                    summary.TotalPrincipal = (summary.LendingBreakdown?.TotalPrincipal ?? 0) + borrowingBreakdown.TotalPrincipal;
+                }
+            }
+
+            return summary;
         }
     }
 }
