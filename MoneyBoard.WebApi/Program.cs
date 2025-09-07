@@ -2,12 +2,14 @@ using MoneyBoard.Application;
 using MoneyBoard.Infrastructure;
 using MoneyBoard.WebApi.Extensions;
 using MoneyBoard.WebApi.Middleware;
+using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 
 try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // Setup Serilog logging
     Log.Logger = new LoggerConfiguration()
         .ReadFrom.Configuration(builder.Configuration)
         .Enrich.FromLogContext()
@@ -19,6 +21,7 @@ try
             .ReadFrom.Services(services)
             .Enrich.FromLogContext());
 
+    // Add Controllers
     builder.Services.AddControllers();
 
     // Determine allowed origins based on environment
@@ -26,20 +29,21 @@ try
         ? new[] { "*" } // Allow all in development
         : new[] { "https://smart-loan-tracker.vercel.app" };
 
-    // Add CORS policy to allow specific origins
+    // Add CORS policy
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
         {
             if (allowedOrigins.Contains("*"))
             {
+                // Development: allow all (no credentials)
                 policyBuilder.AllowAnyOrigin()
                              .AllowAnyMethod()
-                             .AllowAnyHeader()
-                             .AllowCredentials();
+                             .AllowAnyHeader();
             }
             else
             {
+                // Production: restrict to frontend, allow credentials
                 policyBuilder.WithOrigins(allowedOrigins)
                              .AllowAnyMethod()
                              .AllowAnyHeader()
@@ -48,6 +52,7 @@ try
         });
     });
 
+    // Register application + infrastructure services
     builder.Services
         .AddApplication()
         .AddInfrastructure(builder.Configuration)
@@ -55,20 +60,30 @@ try
 
     var app = builder.Build();
 
+    // Configure forwarded headers (important for Render.com / reverse proxies)
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
+    // Middleware
     app.UseMiddleware<CorsLoggingMiddleware>();
     app.UseMiddleware<GlobalExceptionHandler>();
     app.UseSerilogRequestLogging();
 
+    // Swagger only in Development
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
         app.UseSwaggerUI();
     }
 
-    app.UseHttpsRedirection();
+    // Order is important!
     app.UseCors("AllowSpecificOrigins");
+    app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();
+
     app.MapControllers();
 
     app.Run();
