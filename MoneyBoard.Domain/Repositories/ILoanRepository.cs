@@ -18,5 +18,13 @@ namespace MoneyBoard.Domain.Repositories
 
         Task<Loan> AmendAsync(Guid id, Loan amendment);
         Task<IEnumerable<Loan>> GetActiveLoansAsync(Guid userId);
+        Task<decimal> GetTotalLentAsync(Guid userId, DateTime startDate, DateTime endDate);
+        Task<decimal> GetTotalBorrowedAsync(Guid userId, DateTime startDate, DateTime endDate);
+        Task<decimal> GetTotalInterestEarnedAsync(Guid userId, DateTime startDate, DateTime endDate);
+        Task<IEnumerable<Loan>> GetLoansWithUpcomingPaymentsAsync(Guid userId, DateTime fromDate, DateTime toDate);
+        Task<Dictionary<string, int>> GetLoanStatusDistributionAsync(Guid userId);
+        Task<Dictionary<string, decimal>> GetMonthlyRepaymentTotalsAsync(Guid userId, int year);
+        Task<IEnumerable<Loan>> GetOverdueLoansAsync(Guid userId);
+        Task<IEnumerable<Loan>> GetLoansWithUpcomingDueDatesAsync(Guid userId, DateTime fromDate, DateTime toDate);
     }
 }

@@ -188,7 +188,7 @@ public sealed class AuthService : IAuthService
         // Find and validate reset token
         var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(dto.Token);
 
-        if (resetToken == null || resetToken.Email != dto.Email || !resetToken.IsValid)
+        if (resetToken == null || resetToken.Email != dto.Email)
         {
             _logger.LogWarning("Invalid password reset attempt for email {Email}", dto.Email);
             throw new UnauthorizedAccessException("Invalid or expired reset token.");
@@ -212,5 +212,33 @@ public sealed class AuthService : IAuthService
         }
 
         _logger.LogInformation("Password reset successfully for user {UserId}", user.Id);
+    }
+
+    public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto, CancellationToken ct = default)
+    {
+        var user = await _userRepository.GetByIdAsync(Guid.Parse(userId));
+        if (user == null) throw new InvalidOperationException("User not found.");
+
+        // Verify current password
+        if (!_bcrypt.VerifyPassword(dto.CurrentPassword, user.PasswordHash))
+        {
+            _logger.LogWarning("Invalid current password attempt for user {UserId}", user.Id);
+            throw new UnauthorizedAccessException("Current password is incorrect.");
+        }
+
+        // Update password
+        user.PasswordHash = _bcrypt.HashPassword(dto.NewPassword) ?? "";
+        await _userRepository.UpdateAsync(user);
+
+        // Revoke all refresh tokens for security
+        var userRefreshTokens = await _refreshTokenRepository.GetActiveTokensByUserIdAsync(user.Id);
+
+        foreach (var token in userRefreshTokens)
+        {
+            token.Revoke();
+            await _refreshTokenRepository.UpdateAsync(token);
+        }
+
+        _logger.LogInformation("Password changed successfully for user {UserId}", user.Id);
     }
 }

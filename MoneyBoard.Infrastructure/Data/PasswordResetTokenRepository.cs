@@ -9,13 +9,13 @@ namespace MoneyBoard.Infrastructure.Data
         public async Task<PasswordResetToken?> GetByTokenAsync(string token)
         {
             return await context.PasswordResetTokens
-                .FirstOrDefaultAsync(t => t.Token == token && !t.IsDeleted);
+                .FirstOrDefaultAsync(t => t.Token == token && !t.IsUsed && t.ExpiresAt > DateTime.UtcNow && !t.IsDeleted);
         }
 
         public async Task<IEnumerable<PasswordResetToken>> GetExpiredTokensByEmailAsync(string email)
         {
             return await context.PasswordResetTokens
-                .Where(t => t.Email == email && !t.IsValid && !t.IsDeleted)
+                .Where(t => t.Email == email && (t.IsUsed || t.ExpiresAt <= DateTime.UtcNow) && !t.IsDeleted)
                 .ToListAsync();
         }
 

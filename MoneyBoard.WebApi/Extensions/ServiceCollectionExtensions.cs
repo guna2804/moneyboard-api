@@ -2,6 +2,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MoneyBoard.Application.DTOs;
@@ -10,6 +11,7 @@ using MoneyBoard.Application.Mappings;
 using MoneyBoard.Application.Validators;
 using System.Reflection;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace MoneyBoard.WebApi.Extensions
 {
@@ -23,9 +25,22 @@ namespace MoneyBoard.WebApi.Extensions
             // Validators
             services.AddScoped<IValidator<RegisterDto>, AuthValidator.RegisterValidator>();
             services.AddScoped<IValidator<LoginDto>, AuthValidator.LoginValidator>();
+            services.AddScoped<IValidator<ChangePasswordDto>, AuthValidator.ChangePasswordValidator>();
             services.AddScoped<IValidator<CreateLoanDto>, LoanValidator.CreateLoanValidator>();
             services.AddScoped<IValidator<UpdateLoanDto>, LoanValidator.UpdateLoanValidator>();
 
+            // Rate Limiting
+            services.AddRateLimiter(options =>
+            {
+                options.AddFixedWindowLimiter("fixed", opt =>
+                {
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.PermitLimit = 100;
+                    opt.QueueLimit = 0;
+                });
+
+                options.RejectionStatusCode = 429;
+            });
 
             // JWT Authentication
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

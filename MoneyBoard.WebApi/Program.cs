@@ -4,6 +4,7 @@ using MoneyBoard.WebApi.Extensions;
 using MoneyBoard.WebApi.Middleware;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Security.Cryptography.X509Certificates;
 
@@ -69,6 +70,13 @@ try
 
     var app = builder.Build();
 
+    // Apply migrations
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<MoneyBoard.Infrastructure.Data.AppDbContext>();
+        dbContext.Database.Migrate();
+    }
+
     // Configure forwarded headers (important for Render.com / reverse proxies)
     app.UseForwardedHeaders(new ForwardedHeadersOptions
     {
@@ -92,6 +100,7 @@ try
     // Order is important!
     app.UseCors("AllowSpecificOrigins");
     app.UseHttpsRedirection();
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
 

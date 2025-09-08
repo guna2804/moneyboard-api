@@ -16,7 +16,7 @@ namespace MoneyBoard.Infrastructure.Data
         public async Task<IEnumerable<RefreshToken>> GetActiveTokensByUserIdAsync(Guid userId)
         {
             return await context.RefreshTokens
-                .Where(rt => rt.UserId == userId && rt.IsActive && !rt.IsDeleted)
+                .Where(rt => rt.UserId == userId && !rt.IsRevoked && DateTime.UtcNow < rt.ExpiresAt && !rt.IsDeleted)
                 .ToListAsync();
         }
 

@@ -1,7 +1,15 @@
 using MoneyBoard.Domain.Entities;
+using MoneyBoard.Domain.Enums;
 
 namespace MoneyBoard.Domain.Repositories
 {
+    public class RepaymentSummaryData
+    {
+        public decimal TotalPayments { get; set; }
+        public decimal TotalInterest { get; set; }
+        public decimal TotalPrincipal { get; set; }
+    }
+
     public interface IRepaymentRepository
     {
         Task<Repayment?> GetByIdAsync(Guid id);
@@ -12,5 +20,9 @@ namespace MoneyBoard.Domain.Repositories
         Task UpdateRepaymentAsync(Repayment repayment);
         Task SoftDeleteRepaymentAsync(Guid id);
         Task<int> SaveChangesAsync();
+        Task<IEnumerable<Repayment>> GetRecentRepaymentsByUserAsync(Guid userId, int limit, int offset);
+        Task<int> GetRecentRepaymentsCountByUserAsync(Guid userId);
+        Task<bool> HasRepaymentInPeriodAsync(Guid loanId, DateTime repaymentDate, RepaymentFrequencyType frequency, Guid? excludeRepaymentId = null);
+        Task<RepaymentSummaryData> GetRepaymentSummaryDataAsync(Guid userId, string role);
     }
 }

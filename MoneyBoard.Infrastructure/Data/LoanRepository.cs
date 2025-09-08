@@ -132,5 +132,107 @@ namespace MoneyBoard.Infrastructure.Data
                 .OrderByDescending(l => l.CreatedAt)
                 .ToListAsync();
         }
+
+        public async Task<decimal> GetTotalLentAsync(Guid userId, DateTime startDate, DateTime endDate)
+        {
+            return await context.Loans
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Role == "Lender" &&
+                           l.CreatedAt >= startDate &&
+                           l.CreatedAt <= endDate)
+                .SumAsync(l => l.Principal);
+        }
+
+        public async Task<decimal> GetTotalBorrowedAsync(Guid userId, DateTime startDate, DateTime endDate)
+        {
+            return await context.Loans
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Role == "Borrower" &&
+                           l.CreatedAt >= startDate &&
+                           l.CreatedAt <= endDate)
+                .SumAsync(l => l.Principal);
+        }
+
+        public async Task<decimal> GetTotalInterestEarnedAsync(Guid userId, DateTime startDate, DateTime endDate)
+        {
+            var lenderLoans = await context.Loans
+                .Include(l => l.Repayments)
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Role == "Lender" &&
+                           l.CreatedAt >= startDate &&
+                           l.CreatedAt <= endDate)
+                .ToListAsync();
+
+            decimal totalInterest = 0;
+            foreach (var loan in lenderLoans)
+            {
+                totalInterest += loan.Repayments
+                    .Where(r => !r.IsDeleted && r.RepaymentDate >= startDate && r.RepaymentDate <= endDate)
+                    .Sum(r => r.InterestComponent);
+            }
+
+            return totalInterest;
+        }
+
+        public async Task<IEnumerable<Loan>> GetLoansWithUpcomingPaymentsAsync(Guid userId, DateTime fromDate, DateTime toDate)
+        {
+            // This is complex to implement efficiently in SQL due to the business logic in GetNextDueDate()
+            // For now, we'll get active loans and calculate in memory, but this could be optimized later
+            return await context.Loans
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Status == LoanStatus.Active)
+                .ToListAsync();
+        }
+
+        public async Task<Dictionary<string, int>> GetLoanStatusDistributionAsync(Guid userId)
+        {
+            var distribution = await context.Loans
+                .Where(l => !l.IsDeleted && l.UserId == userId)
+                .GroupBy(l => l.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.Status.ToString(), g => g.Count);
+
+            return distribution;
+        }
+
+        public async Task<Dictionary<string, decimal>> GetMonthlyRepaymentTotalsAsync(Guid userId, int year)
+        {
+            var monthlyTotals = await context.Repayments
+                .Include(r => r.Loan)
+                .Where(r => !r.IsDeleted &&
+                           r.Loan != null &&
+                           !r.Loan.IsDeleted &&
+                           r.Loan.UserId == userId &&
+                           r.RepaymentDate.Year == year)
+                .GroupBy(r => r.RepaymentDate.Month)
+                .Select(g => new { Month = g.Key, Total = g.Sum(r => r.Amount) })
+                .ToDictionaryAsync(g => g.Month.ToString(), g => g.Total);
+
+            return monthlyTotals;
+        }
+
+        public async Task<IEnumerable<Loan>> GetOverdueLoansAsync(Guid userId)
+        {
+            return await context.Loans
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Status == LoanStatus.Overdue)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Loan>> GetLoansWithUpcomingDueDatesAsync(Guid userId, DateTime fromDate, DateTime toDate)
+        {
+            // Similar to GetLoansWithUpcomingPaymentsAsync, this requires business logic
+            // For now, return active loans and calculate in service layer
+            return await context.Loans
+                .Where(l => !l.IsDeleted &&
+                           l.UserId == userId &&
+                           l.Status == LoanStatus.Active)
+                .ToListAsync();
+        }
     }
 }

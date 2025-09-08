@@ -48,7 +48,7 @@ namespace MoneyBoard.Application.Services
                 return RepaymentResult.Error("Repayment date cannot be before loan start date.");
 
             // Check for existing repayment in the same period based on frequency
-            if (await HasRepaymentInSamePeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency))
+            if (await _repaymentRepository.HasRepaymentInPeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency))
                 return RepaymentResult.Error($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
 
             // Additional date validations
@@ -110,7 +110,7 @@ namespace MoneyBoard.Application.Services
 
             // Check for existing repayment in the same period based on frequency (excluding current repayment)
             if (request.RepaymentDate != repayment.RepaymentDate &&
-                await HasRepaymentInSamePeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency, repaymentId))
+                await _repaymentRepository.HasRepaymentInPeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency, repaymentId))
                 throw new InvalidOperationException($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
 
             // Additional date validations
@@ -194,38 +194,6 @@ namespace MoneyBoard.Application.Services
             );
         }
 
-        private async Task<bool> HasRepaymentInSamePeriodAsync(Guid loanId, DateTime repaymentDate, Domain.Enums.RepaymentFrequencyType frequency, Guid? excludeRepaymentId = null)
-        {
-            var existingRepayments = await _repaymentRepository.GetRepaymentsByLoanIdAsync(loanId, 1, int.MaxValue, null, null);
-
-            // Exclude the current repayment if updating
-            if (excludeRepaymentId.HasValue)
-            {
-                existingRepayments = existingRepayments.Where(r => r.Id != excludeRepaymentId.Value);
-            }
-
-            return frequency switch
-            {
-                Domain.Enums.RepaymentFrequencyType.Monthly =>
-                    existingRepayments.Any(r => r.RepaymentDate.Year == repaymentDate.Year && r.RepaymentDate.Month == repaymentDate.Month),
-
-                Domain.Enums.RepaymentFrequencyType.Quarterly =>
-                    existingRepayments.Any(r => GetQuarter(r.RepaymentDate) == GetQuarter(repaymentDate) && r.RepaymentDate.Year == repaymentDate.Year),
-
-                Domain.Enums.RepaymentFrequencyType.Yearly =>
-                    existingRepayments.Any(r => r.RepaymentDate.Year == repaymentDate.Year),
-
-                Domain.Enums.RepaymentFrequencyType.LumpSum =>
-                    existingRepayments.Any(), // Any existing repayment means lump sum is already paid
-
-                _ => false
-            };
-        }
-
-        private static int GetQuarter(DateTime date)
-        {
-            return (date.Month - 1) / 3 + 1;
-        }
 
         private static void ValidateRepaymentDate(DateTime repaymentDate, Loan loan)
         {
@@ -261,13 +229,13 @@ namespace MoneyBoard.Application.Services
 
             if (role == "lending" || role == "all")
             {
-                // Get lending summary (user is lender, receiving repayments)
-                var lendingRepayments = await _repaymentRepository.GetRepaymentsByUserRoleAsync(userId, "Lender");
+                // Get lending summary using optimized database query
+                var lendingData = await _repaymentRepository.GetRepaymentSummaryDataAsync(userId, "lending");
                 var lendingBreakdown = new RepaymentBreakdownDto
                 {
-                    TotalPayments = lendingRepayments.Sum(r => r.Amount),
-                    TotalInterest = lendingRepayments.Sum(r => r.InterestComponent),
-                    TotalPrincipal = lendingRepayments.Sum(r => r.PrincipalComponent)
+                    TotalPayments = lendingData.TotalPayments,
+                    TotalInterest = lendingData.TotalInterest,
+                    TotalPrincipal = lendingData.TotalPrincipal
                 };
 
                 if (role == "lending")
@@ -284,13 +252,13 @@ namespace MoneyBoard.Application.Services
 
             if (role == "borrowing" || role == "all")
             {
-                // Get borrowing summary (user is borrower, making repayments)
-                var borrowingRepayments = await _repaymentRepository.GetRepaymentsByUserRoleAsync(userId, "Borrower");
+                // Get borrowing summary using optimized database query
+                var borrowingData = await _repaymentRepository.GetRepaymentSummaryDataAsync(userId, "borrowing");
                 var borrowingBreakdown = new RepaymentBreakdownDto
                 {
-                    TotalPayments = borrowingRepayments.Sum(r => r.Amount),
-                    TotalInterest = borrowingRepayments.Sum(r => r.InterestComponent),
-                    TotalPrincipal = borrowingRepayments.Sum(r => r.PrincipalComponent)
+                    TotalPayments = borrowingData.TotalPayments,
+                    TotalInterest = borrowingData.TotalInterest,
+                    TotalPrincipal = borrowingData.TotalPrincipal
                 };
 
                 if (role == "borrowing")

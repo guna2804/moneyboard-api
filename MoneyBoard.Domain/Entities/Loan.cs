@@ -168,5 +168,68 @@ namespace MoneyBoard.Domain.Entities
 
             return Math.Round(balance, 2, MidpointRounding.ToEven);
         }
+
+        /// <summary>
+        /// Calculate the EMI (Equated Monthly Installment) amount for the loan
+        /// </summary>
+        public decimal CalculateEmiAmount()
+        {
+            if (EndDate == null)
+                return 0;
+
+            int n = CalculateNumberOfPeriods();
+            if (n <= 0)
+                return 0;
+
+            decimal totalAmount = CalculateTotalAmount();
+
+            if (InterestType == InterestType.Compound)
+            {
+                int periodsPerYear = RepaymentFrequency switch
+                {
+                    RepaymentFrequencyType.Monthly => 12,
+                    RepaymentFrequencyType.Quarterly => 4,
+                    RepaymentFrequencyType.Yearly => 1,
+                    _ => 12
+                };
+
+                decimal r = InterestRate / 100 / periodsPerYear;
+                if (r <= 0)
+                    return 0;
+
+                decimal emi = Principal * r * (decimal)Math.Pow(1 + (double)r, n) / ((decimal)Math.Pow(1 + (double)r, n) - 1);
+                return Math.Round(emi, 2, MidpointRounding.ToEven);
+            }
+            else // Flat
+            {
+                decimal emi = totalAmount / n;
+                return Math.Round(emi, 2, MidpointRounding.ToEven);
+            }
+        }
+
+        /// <summary>
+        /// Calculate the number of repayment periods for the loan
+        /// </summary>
+        private int CalculateNumberOfPeriods()
+        {
+            if (EndDate == null)
+                return 0;
+
+            var start = StartDate.ToDateTime(TimeOnly.MinValue);
+            var end = EndDate.Value.ToDateTime(TimeOnly.MinValue);
+
+            int periodsPerYear = RepaymentFrequency switch
+            {
+                RepaymentFrequencyType.Monthly => 12,
+                RepaymentFrequencyType.Quarterly => 4,
+                RepaymentFrequencyType.Yearly => 1,
+                _ => 12
+            };
+
+            var totalDays = (end - start).TotalDays;
+            var periods = (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
+
+            return periods;
+        }
     }
 }

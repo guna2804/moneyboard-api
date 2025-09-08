@@ -130,5 +130,104 @@ namespace MoneyBoard.Infrastructure.Data
         }
 
         public Task<int> SaveChangesAsync() => context.SaveChangesAsync();
+
+        public async Task<IEnumerable<Repayment>> GetRecentRepaymentsByUserAsync(Guid userId, int limit, int offset)
+        {
+            return await context.Repayments
+                .Include(r => r.Loan)
+                .Where(r => !r.IsDeleted &&
+                           r.Loan != null &&
+                           !r.Loan.IsDeleted &&
+                           r.Loan.UserId == userId)
+                .OrderByDescending(r => r.RepaymentDate)
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetRecentRepaymentsCountByUserAsync(Guid userId)
+        {
+            return await context.Repayments
+                .Include(r => r.Loan)
+                .Where(r => !r.IsDeleted &&
+                           r.Loan != null &&
+                           !r.Loan.IsDeleted &&
+                           r.Loan.UserId == userId)
+                .CountAsync();
+        }
+
+        public async Task<bool> HasRepaymentInPeriodAsync(Guid loanId, DateTime repaymentDate, RepaymentFrequencyType frequency, Guid? excludeRepaymentId = null)
+        {
+            var query = context.Repayments
+                .Where(r => !r.IsDeleted && r.LoanId == loanId);
+
+            // Exclude the current repayment if updating
+            if (excludeRepaymentId.HasValue)
+            {
+                query = query.Where(r => r.Id != excludeRepaymentId.Value);
+            }
+
+            return frequency switch
+            {
+                RepaymentFrequencyType.Monthly =>
+                    await query.AnyAsync(r => r.RepaymentDate.Year == repaymentDate.Year && r.RepaymentDate.Month == repaymentDate.Month),
+
+                RepaymentFrequencyType.Quarterly =>
+                    await query.AnyAsync(r => GetQuarter(r.RepaymentDate) == GetQuarter(repaymentDate) && r.RepaymentDate.Year == repaymentDate.Year),
+
+                RepaymentFrequencyType.Yearly =>
+                    await query.AnyAsync(r => r.RepaymentDate.Year == repaymentDate.Year),
+
+                RepaymentFrequencyType.LumpSum =>
+                    await query.AnyAsync(), // Any existing repayment means lump sum is already paid
+
+                _ => false
+            };
+        }
+
+        public async Task<RepaymentSummaryData> GetRepaymentSummaryDataAsync(Guid userId, string role)
+        {
+            var query = context.Repayments
+                .Include(r => r.Loan)
+                .Where(r => !r.IsDeleted &&
+                           r.Loan != null &&
+                           !r.Loan.IsDeleted &&
+                           r.Loan.UserId == userId);
+
+            // Apply role filter
+            if (role == "lending")
+            {
+                query = query.Where(r => r.Loan.Role == "Lender");
+            }
+            else if (role == "borrowing")
+            {
+                query = query.Where(r => r.Loan.Role == "Borrower");
+            }
+            // For "all", no additional filter needed
+
+            var summary = await query
+                .GroupBy(r => 1) // Group all results together
+                .Select(g => new
+                {
+                    TotalPayments = g.Sum(r => r.Amount),
+                    TotalInterest = g.Sum(r => r.InterestComponent),
+                    TotalPrincipal = g.Sum(r => r.PrincipalComponent)
+                })
+                .FirstOrDefaultAsync();
+
+            return summary != null
+                ? new RepaymentSummaryData
+                {
+                    TotalPayments = summary.TotalPayments,
+                    TotalInterest = summary.TotalInterest,
+                    TotalPrincipal = summary.TotalPrincipal
+                }
+                : new RepaymentSummaryData();
+        }
+
+        private static int GetQuarter(DateTime date)
+        {
+            return (date.Month - 1) / 3 + 1;
+        }
     }
 }

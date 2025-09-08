@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 
@@ -48,6 +49,21 @@ namespace MoneyBoard.WebApi.Controllers
         {
             await _authService.ResetPasswordAsync(dto);
             return Ok(new { message = "Password has been reset successfully." });
+        }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            // Get user ID from JWT token
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            await _authService.ChangePasswordAsync(userId, dto);
+            return Ok(new { message = "Password has been changed successfully." });
         }
     }
 }

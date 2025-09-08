@@ -13,4 +13,6 @@ public interface IAuthService
     Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default);
 
     Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken cancellationToken = default);
+
+    Task ChangePasswordAsync(string userId, ChangePasswordDto dto, CancellationToken cancellationToken = default);
 }
