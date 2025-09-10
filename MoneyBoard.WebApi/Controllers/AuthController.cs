@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
+using MoneyBoard.WebApi.Extensions;
 
 namespace MoneyBoard.WebApi.Controllers
 {
@@ -20,35 +21,35 @@ namespace MoneyBoard.WebApi.Controllers
         public async Task<IActionResult> Register(RegisterDto dto)
         {
             var result = await _authService.RegisterAsync(dto);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "User registered successfully");
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
             var result = await _authService.LoginAsync(dto);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Login successful");
         }
 
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh(RefreshTokenDto dto)
         {
             var result = await _authService.RefreshAsync(dto);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Token refreshed successfully");
         }
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             await _authService.ForgotPasswordAsync(dto);
-            return Ok(new { message = "If the email exists, a reset link has been sent." });
+            return ApiResponseHelper.OkResponse<object>(null, "If the email exists, a reset link has been sent.");
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
         {
             await _authService.ResetPasswordAsync(dto);
-            return Ok(new { message = "Password has been reset successfully." });
+            return ApiResponseHelper.OkResponse<object>(null, "Password has been reset successfully.");
         }
 
         [HttpPost("change-password")]
@@ -59,11 +60,11 @@ namespace MoneyBoard.WebApi.Controllers
             var userId = User.FindFirst("userId")?.Value;
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized();
+                return ApiResponseHelper.UnauthorizedResponse();
             }
 
             await _authService.ChangePasswordAsync(userId, dto);
-            return Ok(new { message = "Password has been changed successfully." });
+            return ApiResponseHelper.OkResponse<object>(null, "Password has been changed successfully.");
         }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Application.Validators;
+using MoneyBoard.WebApi.Extensions;
 
 namespace MoneyBoard.WebApi.Controllers
 {
@@ -21,7 +22,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await repaymentService.GetRepaymentsAsync(loanId, page, pageSize, sortBy, filter, userId);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Repayments retrieved successfully");
         }
 
         [HttpPost]
@@ -32,7 +33,7 @@ namespace MoneyBoard.WebApi.Controllers
             var validationResult = await validator.ValidateAsync(request);
             if (!validationResult.IsValid)
             {
-                return BadRequest(new { code = "VALIDATION_ERROR", message = "Invalid request data", details = validationResult.Errors });
+                return ApiResponseHelper.BadRequestResponse("Invalid request data");
             }
 
             var userId = GetCurrentUserId();
@@ -40,10 +41,10 @@ namespace MoneyBoard.WebApi.Controllers
 
             if (!result.IsSuccess)
             {
-                return BadRequest(new { code = "REPAYMENT_ERROR", message = result.ErrorMessage });
+                return ApiResponseHelper.BadRequestResponse(result.ErrorMessage ?? "Repayment error");
             }
 
-            return CreatedAtAction(nameof(GetRepayments), new { loanId }, result.Data);
+            return ApiResponseHelper.CreatedResponse(result.Data, "Repayment created successfully", nameof(GetRepayments), new { loanId });
         }
 
         [HttpPut("{repaymentId}")]
@@ -54,7 +55,7 @@ namespace MoneyBoard.WebApi.Controllers
             var validationResult = await validator.ValidateAsync(request);
             if (!validationResult.IsValid)
             {
-                return BadRequest(new { code = "VALIDATION_ERROR", message = "Invalid request data", details = validationResult.Errors });
+                return ApiResponseHelper.BadRequestResponse("Invalid request data");
             }
 
             var userId = GetCurrentUserId();
@@ -62,10 +63,10 @@ namespace MoneyBoard.WebApi.Controllers
 
             if (!result.IsSuccess)
             {
-                return BadRequest(new { code = "REPAYMENT_ERROR", message = result.ErrorMessage });
+                return ApiResponseHelper.BadRequestResponse(result.ErrorMessage ?? "Repayment error");
             }
 
-            return Ok(result.Data);
+            return ApiResponseHelper.OkResponse(result.Data, "Repayment updated successfully");
         }
 
         [HttpDelete("{repaymentId}")]
@@ -73,7 +74,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             await repaymentService.DeleteRepaymentAsync(loanId, repaymentId, userId);
-            return NoContent();
+            return ApiResponseHelper.NoContentResponse("Repayment deleted successfully");
         }
 
         [HttpGet("summary")]
@@ -83,15 +84,15 @@ namespace MoneyBoard.WebApi.Controllers
             {
                 var userId = GetCurrentUserId();
                 var result = await repaymentService.GetRepaymentSummaryAsync(role, userId);
-                return Ok(result);
+                return ApiResponseHelper.OkResponse(result, "Repayment summary retrieved successfully");
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { code = "INVALID_ROLE", message = ex.Message });
+                return ApiResponseHelper.BadRequestResponse(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { code = "INTERNAL_ERROR", message = "An unexpected error occurred.", details = ex.Message });
+                return ApiResponseHelper.InternalServerErrorResponse("An unexpected error occurred.");
             }
         }
 

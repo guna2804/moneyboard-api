@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Application.Validators;
+using MoneyBoard.WebApi.Extensions;
 
 namespace MoneyBoard.WebApi.Controllers
 {
@@ -20,7 +21,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.GetLoansAsync(role, status, page, pageSize, userId);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Loans retrieved successfully");
         }
 
         [HttpGet("{loanId}")]
@@ -28,7 +29,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.GetLoanByIdAsync(loanId, userId);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Loan details retrieved successfully");
         }
 
         [HttpGet("with-outstanding")]
@@ -38,7 +39,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.GetLoansWithOutstandingRepaymentsAsync(userId, page, pageSize);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Loans with outstanding repayments retrieved successfully");
         }
 
         [HttpPost]
@@ -46,7 +47,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.CreateLoanAsync(dto, userId);
-            return CreatedAtAction(nameof(GetLoanById), new { loanId = result.Id }, result);
+            return ApiResponseHelper.CreatedResponse(result, "Loan created successfully", nameof(GetLoanById), new { loanId = result.Id });
         }
 
         [HttpPut("{loanId}")]
@@ -54,7 +55,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.UpdateLoanAsync(loanId, dto, userId);
-            return Ok(result);
+            return ApiResponseHelper.OkResponse(result, "Loan updated successfully");
         }
 
         [HttpDelete("{loanId}")]
@@ -62,7 +63,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             await loanService.DeleteLoanAsync(loanId, userId);
-            return NoContent();
+            return ApiResponseHelper.NoContentResponse("Loan deleted successfully");
         }
 
         [HttpPost("{loanId}/amend")]
@@ -70,7 +71,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.AmendLoanAsync(loanId, dto, userId);
-            return CreatedAtAction(nameof(GetLoanById), new { loanId = result.Id }, result);
+            return ApiResponseHelper.CreatedResponse(result, "Loan amended successfully", nameof(GetLoanById), new { loanId = result.Id });
         }
 
         private Guid GetCurrentUserId()
