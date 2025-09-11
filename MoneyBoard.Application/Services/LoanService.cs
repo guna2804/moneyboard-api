@@ -18,7 +18,7 @@ namespace MoneyBoard.Application.Services
             _mapper = mapper;
         }
 
-        public async Task<LoanDetailsDto> GetLoanByIdAsync(Guid id, Guid userId)
+        public async Task<LoanWithRepaymentHistoryDto> GetLoanByIdAsync(Guid id, Guid userId)
         {
             var loan = await _loanRepository.GetByIdAsync(id);
             if (loan == null || loan.UserId != userId)
@@ -26,8 +26,29 @@ namespace MoneyBoard.Application.Services
                 throw new KeyNotFoundException("Loan not found or access denied.");
             }
 
-            var loanDto = _mapper.Map<LoanDetailsDto>(loan);
+            var loanDto = _mapper.Map<LoanWithRepaymentHistoryDto>(loan);
             loanDto.TotalAmount = loan.CalculateTotalAmount();
+
+            // Populate additional fields
+            loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
+            loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+            loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
+            loanDto.NextDueDate = loan.GetNextDueDate();
+
+            // Populate repayment history
+            loanDto.RepaymentHistory = loan.Repayments
+                .Where(r => !r.IsDeleted)
+                .OrderByDescending(r => r.RepaymentDate)
+                .Select(r => new RepaymentHistoryDto
+                {
+                    RepaymentId = r.Id,
+                    RepaymentDate = r.RepaymentDate,
+                    PrincipalComponent = r.PrincipalComponent,
+                    InterestComponent = r.InterestComponent,
+                    Amount = r.Amount,
+                    Notes = r.Notes,
+                    Status = r.Status
+                });
 
             return loanDto;
         }
@@ -45,6 +66,10 @@ namespace MoneyBoard.Application.Services
                 if (loan != null)
                 {
                     loanDto.TotalAmount = loan.CalculateTotalAmount();
+                    loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
+                    loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+                    loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
+                    loanDto.NextDueDate = loan.GetNextDueDate();
                 }
             }
 
@@ -67,6 +92,10 @@ namespace MoneyBoard.Application.Services
             var createdLoan = await _loanRepository.CreateAsync(loan);
             var loanDto = _mapper.Map<LoanDetailsDto>(createdLoan);
             loanDto.TotalAmount = createdLoan.CalculateTotalAmount();
+            loanDto.TotalPrincipalRepaid = 0;
+            loanDto.TotalInterestPaid = 0;
+            loanDto.OutstandingBalance = createdLoan.CalculateOutstandingBalance();
+            loanDto.NextDueDate = createdLoan.GetNextDueDate();
 
             return loanDto;
         }
@@ -106,6 +135,10 @@ namespace MoneyBoard.Application.Services
             var updatedLoan = await _loanRepository.UpdateAsync(existingLoan);
             var loanDto = _mapper.Map<LoanDetailsDto>(updatedLoan);
             loanDto.TotalAmount = updatedLoan.CalculateTotalAmount();
+            loanDto.TotalPrincipalRepaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
+            loanDto.TotalInterestPaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+            loanDto.OutstandingBalance = updatedLoan.CalculateOutstandingBalance();
+            loanDto.NextDueDate = updatedLoan.GetNextDueDate();
 
             return loanDto;
         }
@@ -150,6 +183,10 @@ namespace MoneyBoard.Application.Services
             var createdAmendment = await _loanRepository.AmendAsync(id, amendedLoan);
             var loanDto = _mapper.Map<LoanDetailsDto>(createdAmendment);
             loanDto.TotalAmount = createdAmendment.CalculateTotalAmount();
+            loanDto.TotalPrincipalRepaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
+            loanDto.TotalInterestPaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+            loanDto.OutstandingBalance = createdAmendment.CalculateOutstandingBalance();
+            loanDto.NextDueDate = createdAmendment.GetNextDueDate();
 
             return loanDto;
         }

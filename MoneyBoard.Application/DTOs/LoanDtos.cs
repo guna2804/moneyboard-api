@@ -44,6 +44,12 @@ namespace MoneyBoard.Application.DTOs
 
         // Flag to indicate if loan has started repayments (affects editability)
         public bool HasRepaymentStarted { get; set; }
+
+        // Additional fields for enhanced API
+        public decimal TotalPrincipalRepaid { get; set; }
+        public decimal TotalInterestPaid { get; set; }
+        public decimal OutstandingBalance { get; set; }
+        public DateTime? NextDueDate { get; set; }
     }
 
     public class UpdateLoanDto
@@ -103,5 +109,21 @@ namespace MoneyBoard.Application.DTOs
         public int Page { get; set; }
         public int PageSize { get; set; }
         public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    }
+
+    public class LoanWithRepaymentHistoryDto : LoanDetailsDto
+    {
+        public IEnumerable<RepaymentHistoryDto> RepaymentHistory { get; set; } = new List<RepaymentHistoryDto>();
+    }
+
+    public class RepaymentHistoryDto
+    {
+        public Guid RepaymentId { get; set; }
+        public DateTime RepaymentDate { get; set; }
+        public decimal PrincipalComponent { get; set; }
+        public decimal InterestComponent { get; set; }
+        public decimal Amount { get; set; }
+        public string? Notes { get; set; }
+        public RepaymentStatus Status { get; set; }
     }
 }

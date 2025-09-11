@@ -29,7 +29,7 @@ namespace MoneyBoard.WebApi.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await loanService.GetLoanByIdAsync(loanId, userId);
-            return ApiResponseHelper.OkResponse(result, "Loan details retrieved successfully");
+            return ApiResponseHelper.OkResponse(result, "Loan details with repayment history retrieved successfully");
         }
 
         [HttpGet("with-outstanding")]

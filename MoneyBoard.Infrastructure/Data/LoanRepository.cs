@@ -22,12 +22,12 @@ namespace MoneyBoard.Infrastructure.Data
                 .Include(l => l.Repayments)
                 .Where(l => !l.IsDeleted && l.UserId == userId);
 
-            if (!string.IsNullOrEmpty(role))
+            if (!string.IsNullOrEmpty(role) && role.Trim().ToLower() != "all")
             {
                 query = query.Where(l => l.Role == role);
             }
 
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrEmpty(status) && status.Trim().ToLower() != "all")
             {
                 status = status.Trim();
                 if (Enum.TryParse<LoanStatus>(status, true, out var loanStatus))
@@ -45,12 +45,12 @@ namespace MoneyBoard.Infrastructure.Data
         {
             var query = context.Loans.AsNoTracking().Where(l => !l.IsDeleted && l.UserId == userId);
 
-            if (!string.IsNullOrEmpty(role))
+            if (!string.IsNullOrEmpty(role) && role.Trim().ToLower() != "all")
             {
                 query = query.Where(l => l.Role == role);
             }
 
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrEmpty(status) && status.Trim().ToLower() != "all")
             {
                 status = status.Trim();
                 if (Enum.TryParse<LoanStatus>(status, true, out var loanStatus))
