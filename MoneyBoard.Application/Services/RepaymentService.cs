@@ -47,9 +47,6 @@ namespace MoneyBoard.Application.Services
             if (request.RepaymentDate.Date < loan.StartDate.ToDateTime(TimeOnly.MinValue).Date)
                 return RepaymentResult.Error("Repayment date cannot be before loan start date.");
 
-            // Check for existing repayment in the same period based on frequency
-            if (await _repaymentRepository.HasRepaymentInPeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency))
-                return RepaymentResult.Error($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
 
             // Additional date validations
             ValidateRepaymentDate(request.RepaymentDate, loan);
@@ -108,10 +105,6 @@ namespace MoneyBoard.Application.Services
 
             var oldAmount = repayment.Amount;
 
-            // Check for existing repayment in the same period based on frequency (excluding current repayment)
-            if (request.RepaymentDate != repayment.RepaymentDate &&
-                await _repaymentRepository.HasRepaymentInPeriodAsync(loanId, request.RepaymentDate, loan.RepaymentFrequency, repaymentId))
-                throw new InvalidOperationException($"A repayment already exists for this {loan.RepaymentFrequency.ToString().ToLower()} period.");
 
             // Additional date validations
             ValidateRepaymentDate(request.RepaymentDate, loan);

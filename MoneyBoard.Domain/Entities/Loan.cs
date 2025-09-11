@@ -90,12 +90,15 @@ namespace MoneyBoard.Domain.Entities
         public decimal CalculateAccruedInterest(DateTime toDate)
         {
             var startDateTime = StartDate.ToDateTime(TimeOnly.MinValue);
-            var toDateTime = toDate.Date;
+            var toDateTime = toDate;
 
             if (toDateTime <= startDateTime)
                 return 0;
 
             var timePeriod = (toDateTime - startDateTime).TotalDays / 365.0;
+            if (timePeriod == 0)
+                timePeriod = 1.0 / 365.0; // Accrue for at least one day on same date
+
             var rate = InterestRate / 100;
 
             decimal result = InterestType == InterestType.Compound

@@ -220,14 +220,17 @@ namespace MoneyBoard.Application.Services
             if (loan.EndDate == null)
                 return 0;
 
-            int n = CalculateNumberOfPeriods(loan);
-            if (n <= 0)
+            int totalPeriods = CalculateNumberOfPeriods(loan);
+            if (totalPeriods <= 0)
                 return 0;
 
             decimal totalAmount = loan.CalculateTotalAmount();
+            decimal outstandingBalance = loan.CalculateOutstandingBalance();
 
+            decimal emi;
             if (loan.InterestType == InterestType.Compound)
             {
+                // For compound, use original EMI calculation based on principal
                 int periodsPerYear = loan.RepaymentFrequency switch
                 {
                     RepaymentFrequencyType.Monthly => 12,
@@ -240,14 +243,23 @@ namespace MoneyBoard.Application.Services
                 if (r <= 0)
                     return 0;
 
-                decimal emi = loan.Principal * r * (decimal)Math.Pow(1 + (double)r, n) / ((decimal)Math.Pow(1 + (double)r, n) - 1);
-                return Math.Round(emi, 2, MidpointRounding.ToEven);
+                emi = loan.Principal * r * (decimal)Math.Pow(1 + (double)r, totalPeriods) / ((decimal)Math.Pow(1 + (double)r, totalPeriods) - 1);
             }
             else // Flat
             {
-                decimal emi = totalAmount / n;
-                return Math.Round(emi, 2, MidpointRounding.ToEven);
+                // For flat, use fixed EMI based on total amount / total periods
+                emi = totalAmount / totalPeriods;
             }
+
+            emi = Math.Round(emi, 2, MidpointRounding.ToEven);
+
+            // If outstanding balance is less than EMI, suggest paying the outstanding balance
+            if (outstandingBalance < emi)
+            {
+                return outstandingBalance;
+            }
+
+            return emi;
         }
 
         private int CalculateNumberOfPeriods(Loan loan)
@@ -270,6 +282,21 @@ namespace MoneyBoard.Application.Services
             var periods = (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
 
             return periods;
+        }
+
+        private int CalculateRemainingPeriods(Loan loan, DateOnly nextDueDate)
+        {
+            var end = loan.EndDate.Value;
+            int periodsPerYear = loan.RepaymentFrequency switch
+            {
+                RepaymentFrequencyType.Monthly => 12,
+                RepaymentFrequencyType.Quarterly => 4,
+                RepaymentFrequencyType.Yearly => 1,
+                _ => 12
+            };
+
+            var totalDays = (end.ToDateTime(TimeOnly.MinValue) - nextDueDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
+            return (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
         }
     }
 }
