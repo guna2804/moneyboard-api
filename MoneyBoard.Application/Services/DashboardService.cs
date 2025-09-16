@@ -112,7 +112,7 @@ namespace MoneyBoard.Application.Services
                     var nextDueDate = loan.GetNextDueDate();
                     if (nextDueDate > now)
                     {
-                        var emiAmount = loan.CalculateEmiAmount();
+                        var emiAmount = MoneyBoard.Application.Services.LoanService.CalculateMonthlyEMI(loan);
                         upcomingPayments.Add((loan, nextDueDate, emiAmount));
                     }
                 }

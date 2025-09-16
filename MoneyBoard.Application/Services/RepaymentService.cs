@@ -110,7 +110,7 @@ namespace MoneyBoard.Application.Services
             );
 
             var dto = _mapper.Map<RepaymentResponseDto>(repayment);
-            dto.NewBalance = loan.CalculateOutstandingBalance(request.RepaymentDate);
+            dto.NewBalance = MoneyBoard.Application.Services.LoanService.CalculateOutstandingBalance(loan);
             return RepaymentResult.Success(dto);
         }
 
@@ -171,7 +171,7 @@ namespace MoneyBoard.Application.Services
             );
 
             var dto = _mapper.Map<RepaymentResponseDto>(repayment);
-            dto.NewBalance = loan.CalculateOutstandingBalance(request.RepaymentDate);
+            dto.NewBalance = MoneyBoard.Application.Services.LoanService.CalculateOutstandingBalance(loan);
             return RepaymentResult.Success(dto);
         }
 

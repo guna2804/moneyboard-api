@@ -27,12 +27,14 @@ namespace MoneyBoard.Application.Services
             }
 
             var loanDto = _mapper.Map<LoanWithRepaymentHistoryDto>(loan);
-            loanDto.TotalAmount = loan.CalculateTotalAmount();
+            loanDto.TotalInterest = CalculateTotalInterest(loan);
+            loanDto.TotalAmount = CalculateTotalAmount(loan);
+            loanDto.MonthlyEMI = CalculateMonthlyEMI(loan);
 
             // Populate additional fields
             loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-            loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
+            loanDto.OutstandingBalance = CalculateOutstandingBalance(loan);
 
             // Populate repayment history
             loanDto.RepaymentHistory = loan.Repayments
@@ -64,10 +66,12 @@ namespace MoneyBoard.Application.Services
                 var loan = loans.FirstOrDefault(l => l.Id == loanDto.Id);
                 if (loan != null)
                 {
-                    loanDto.TotalAmount = loan.CalculateTotalAmount();
+                    loanDto.TotalInterest = CalculateTotalInterest(loan);
+                    loanDto.TotalAmount = CalculateTotalAmount(loan);
+                    loanDto.MonthlyEMI = CalculateMonthlyEMI(loan);
                     loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
                     loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-                    loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
+                    loanDto.OutstandingBalance = CalculateOutstandingBalance(loan);
                 }
             }
 
@@ -89,10 +93,12 @@ namespace MoneyBoard.Application.Services
 
             var createdLoan = await _loanRepository.CreateAsync(loan);
             var loanDto = _mapper.Map<LoanDetailsDto>(createdLoan);
-            loanDto.TotalAmount = createdLoan.CalculateTotalAmount();
+            loanDto.TotalInterest = CalculateTotalInterest(createdLoan);
+            loanDto.TotalAmount = CalculateTotalAmount(createdLoan);
+            loanDto.MonthlyEMI = CalculateMonthlyEMI(createdLoan);
             loanDto.TotalPrincipalRepaid = 0;
             loanDto.TotalInterestPaid = 0;
-            loanDto.OutstandingBalance = createdLoan.CalculateOutstandingBalance();
+            loanDto.OutstandingBalance = CalculateOutstandingBalance(createdLoan);
 
             return loanDto;
         }
@@ -131,10 +137,12 @@ namespace MoneyBoard.Application.Services
 
             var updatedLoan = await _loanRepository.UpdateAsync(existingLoan);
             var loanDto = _mapper.Map<LoanDetailsDto>(updatedLoan);
-            loanDto.TotalAmount = updatedLoan.CalculateTotalAmount();
+            loanDto.TotalInterest = CalculateTotalInterest(updatedLoan);
+            loanDto.TotalAmount = CalculateTotalAmount(updatedLoan);
+            loanDto.MonthlyEMI = CalculateMonthlyEMI(updatedLoan);
             loanDto.TotalPrincipalRepaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-            loanDto.OutstandingBalance = updatedLoan.CalculateOutstandingBalance();
+            loanDto.OutstandingBalance = CalculateOutstandingBalance(updatedLoan);
 
             return loanDto;
         }
@@ -178,10 +186,12 @@ namespace MoneyBoard.Application.Services
 
             var createdAmendment = await _loanRepository.AmendAsync(id, amendedLoan);
             var loanDto = _mapper.Map<LoanDetailsDto>(createdAmendment);
-            loanDto.TotalAmount = createdAmendment.CalculateTotalAmount();
+            loanDto.TotalInterest = CalculateTotalInterest(createdAmendment);
+            loanDto.TotalAmount = CalculateTotalAmount(createdAmendment);
+            loanDto.MonthlyEMI = CalculateMonthlyEMI(createdAmendment);
             loanDto.TotalPrincipalRepaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-            loanDto.OutstandingBalance = createdAmendment.CalculateOutstandingBalance();
+            loanDto.OutstandingBalance = CalculateOutstandingBalance(createdAmendment);
 
             return loanDto;
         }
@@ -205,19 +215,19 @@ namespace MoneyBoard.Application.Services
         public async Task<OutstandingLoansResponseDto> GetLoansWithOutstandingRepaymentsAsync(Guid userId, int page, int pageSize)
         {
             var activeLoans = await _loanRepository.GetActiveLoansAsync(userId);
-            var loansWithOutstanding = activeLoans.Where(l => l.CalculateOutstandingBalance() > 0).ToList();
+            var loansWithOutstanding = activeLoans.Where(l => CalculateOutstandingBalance(l) > 0).ToList();
             var totalCount = loansWithOutstanding.Count;
             var pagedLoans = loansWithOutstanding.Skip((page - 1) * pageSize).Take(pageSize);
 
             var dtos = pagedLoans.Select(l => new OutstandingLoanDto
             {
                 LoanId = l.Id,
-                OutstandingBalance = l.CalculateOutstandingBalance(),
+                OutstandingBalance = CalculateOutstandingBalance(l),
                 InterestRate = l.InterestRate,
                 Status = l.Status,
                 AllowOverpayment = l.AllowOverpayment,
                 NextDueDate = CalculateNextDueDate(l),
-                EmiAmount = CalculateEmiAmount(l),
+                EmiAmount = CalculateMonthlyEMI(l),
                 BorrowerName = l.Role == LoanRole.Lender.ToString() ? l.CounterpartyName : null,
                 LenderName = l.Role == LoanRole.Borrower.ToString() ? l.CounterpartyName : null,
                 Role = l.Role
@@ -256,7 +266,7 @@ namespace MoneyBoard.Application.Services
             if (totalPeriods <= 0)
                 return 0;
 
-            decimal totalAmount = loan.CalculateTotalAmount();
+            decimal totalAmount = CalculateTotalAmount(loan);
             decimal outstandingBalance = loan.CalculateOutstandingBalance();
 
             decimal emi;
@@ -333,6 +343,112 @@ namespace MoneyBoard.Application.Services
                 RepaymentFrequencyType.Yearly => (int)Math.Ceiling(months / 12.0),
                 _ => months
             };
+        }
+        // Calculation helpers for loan financials
+
+        internal static int GetDurationInMonths(Loan loan)
+        {
+            var endDate = loan.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            return (endDate.Year - loan.StartDate.Year) * 12 + (endDate.Month - loan.StartDate.Month);
+        }
+
+        internal static int CalculateTotalInterest(Loan loan)
+        {
+            int months = GetDurationInMonths(loan);
+            decimal principal = loan.Principal;
+            decimal annualRate = loan.InterestRate / 100m;
+            decimal totalInterest = 0;
+
+            if (loan.InterestType == InterestType.Flat)
+            {
+                totalInterest = principal * annualRate * (months / 12m);
+            }
+            else // Compound
+            {
+                decimal r = annualRate / 12m;
+                int n = months;
+                if (r > 0 && n > 0)
+                {
+                    decimal pow = (decimal)Math.Pow(1 + (double)r, n);
+                    decimal monthlyEMI = principal * r * pow / (pow - 1);
+                    decimal totalAmount = monthlyEMI * n;
+                    totalInterest = totalAmount - principal;
+                }
+            }
+            return Utilities.FinancialRounding.RoundToHalf(totalInterest);
+        }
+
+        internal static int CalculateTotalAmount(Loan loan)
+        {
+            int months = GetDurationInMonths(loan);
+            decimal principal = loan.Principal;
+            decimal annualRate = loan.InterestRate / 100m;
+            decimal totalAmount = 0;
+
+            if (loan.InterestType == InterestType.Flat)
+            {
+                decimal totalInterest = principal * annualRate * (months / 12m);
+                totalAmount = principal + totalInterest;
+            }
+            else // Compound
+            {
+                decimal r = annualRate / 12m;
+                int n = months;
+                if (r > 0 && n > 0)
+                {
+                    decimal pow = (decimal)Math.Pow(1 + (double)r, n);
+                    decimal monthlyEMI = principal * r * pow / (pow - 1);
+                    totalAmount = monthlyEMI * n;
+                }
+                else
+                {
+                    totalAmount = principal;
+                }
+            }
+            return Utilities.FinancialRounding.RoundToHalf(totalAmount);
+        }
+
+        internal static int CalculateMonthlyEMI(Loan loan)
+        {
+            int months = GetDurationInMonths(loan);
+            decimal principal = loan.Principal;
+            decimal annualRate = loan.InterestRate / 100m;
+            decimal emi = 0;
+
+            if (months <= 0)
+                return 0;
+
+            if (loan.InterestType == InterestType.Flat)
+            {
+                decimal totalInterest = principal * annualRate * (months / 12m);
+                decimal totalAmount = principal + totalInterest;
+                emi = totalAmount / months;
+            }
+            else // Compound
+            {
+                decimal r = annualRate / 12m;
+                int n = months;
+                if (r > 0 && n > 0)
+                {
+                    decimal pow = (decimal)Math.Pow(1 + (double)r, n);
+                    emi = principal * r * pow / (pow - 1);
+                }
+                else
+                {
+                    emi = principal / months;
+                }
+            }
+            return Utilities.FinancialRounding.RoundToHalf(emi);
+        }
+
+        internal static int CalculateOutstandingBalance(Loan loan)
+        {
+            int totalAmount = CalculateTotalAmount(loan);
+            decimal totalRepayments = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.Amount);
+            decimal outstanding = totalAmount - totalRepayments;
+            if (outstanding < 0)
+                outstanding = 0;
+            return Utilities.FinancialRounding.RoundToHalf(outstanding);
         }
     }
 }

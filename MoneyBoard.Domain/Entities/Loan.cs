@@ -66,25 +66,10 @@ namespace MoneyBoard.Domain.Entities
             Principal = principal;
         }
 
-        public decimal CalculateTotalAmount()
+        public int GetDurationInMonths()
         {
-            var principal = Principal;
-            var rate = InterestRate / 100;
             var endDate = EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
-            var startDateTime = StartDate.ToDateTime(TimeOnly.MinValue);
-            var endDateTime = endDate.ToDateTime(TimeOnly.MinValue);
-
-            var currentDate = DateOnly.FromDateTime(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue);
-            var effectiveEndDate = endDateTime < startDateTime ? currentDate : endDateTime;
-
-            var timePeriod = (effectiveEndDate - startDateTime).TotalDays / 365.0;
-            timePeriod = Math.Max(timePeriod, 1.0 / 365.0);
-
-            decimal result = InterestType == InterestType.Compound
-                ? principal * (decimal)Math.Pow(1 + (double)rate, timePeriod)
-                : principal * (1 + rate * (decimal)timePeriod);
-
-            return Math.Round(result, 2, MidpointRounding.ToEven);
+            return (endDate.Year - StartDate.Year) * 12 + (endDate.Month - StartDate.Month);
         }
 
         public decimal CalculateAccruedInterest(DateTime toDate)
@@ -119,9 +104,8 @@ namespace MoneyBoard.Domain.Entities
             if (InterestType == InterestType.Flat)
             {
                 // For flat interest, calculate remaining total interest
-                var totalInterest = CalculateTotalAmount() - Principal;
-                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-                outstandingInterest = Math.Max(0, totalInterest - interestPaid);
+                // Calculation moved to application layer.
+                outstandingInterest = 0;
             }
             else
             {
@@ -166,9 +150,8 @@ namespace MoneyBoard.Domain.Entities
             if (InterestType == InterestType.Flat)
             {
                 // For flat interest, calculate remaining total interest
-                var totalInterest = CalculateTotalAmount() - Principal;
-                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-                outstandingInterest = Math.Max(0, totalInterest - interestPaid);
+                // Calculation moved to application layer.
+                outstandingInterest = 0;
             }
             else
             {
@@ -209,7 +192,8 @@ namespace MoneyBoard.Domain.Entities
             if (n <= 0)
                 return 0;
 
-            decimal totalAmount = CalculateTotalAmount();
+            // Calculation moved to application layer.
+            decimal totalAmount = 0;
 
             if (InterestType == InterestType.Compound)
             {
