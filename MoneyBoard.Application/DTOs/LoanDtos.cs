@@ -48,8 +48,8 @@ namespace MoneyBoard.Application.DTOs
         public LoanStatus Status { get; set; }
         public string? Notes { get; set; }
         public decimal TotalAmount { get; set; }
-        public int TotalInterest { get; set; }
-        public int MonthlyEMI { get; set; }
+        public decimal TotalInterest { get; set; }
+        public decimal MonthlyEMI { get; set; }
 
         // Flag to indicate if loan has started repayments (affects editability)
         public bool HasRepaymentStarted { get; set; }

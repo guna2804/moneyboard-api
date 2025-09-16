@@ -93,34 +93,84 @@ namespace MoneyBoard.Domain.Entities
             return Math.Round(result, 2, MidpointRounding.ToEven);
         }
 
+        public decimal CalculateTotalInterest()
+        {
+            int months = GetDurationInMonths();
+            decimal principal = Principal;
+            decimal annualRate = InterestRate / 100m;
+            decimal totalInterest = 0;
+
+            if (InterestType == InterestType.Flat)
+            {
+                totalInterest = principal * annualRate * (months / 12m);
+            }
+            else // Compound
+            {
+                decimal r = annualRate / 12m;
+                int n = months;
+                if (r > 0 && n > 0)
+                {
+                    decimal pow = (decimal)Math.Pow(1 + (double)r, n);
+                    decimal monthlyEMI = principal * r * pow / (pow - 1);
+                    decimal totalAmount = monthlyEMI * n;
+                    totalInterest = totalAmount - principal;
+                }
+            }
+            return Math.Round(totalInterest, 2, MidpointRounding.ToEven);
+        }
+
+        public decimal CalculateTotalAmount()
+        {
+            return Principal + CalculateTotalInterest();
+        }
+
         /// <summary>
         /// Allocates repayment: interest first, then principal. Throws if overpayment not allowed.
         /// </summary>
         public (decimal interestPortion, decimal principalPortion, decimal overpayment)
             AllocateRepayment(decimal amount, DateTime repaymentDate, bool allowOverpayment)
         {
-            decimal outstandingInterest;
+            var outstandingPrincipal = Principal - Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
 
+            decimal interestDue;
+            var periods = CalculateNumberOfPeriods();
             if (InterestType == InterestType.Flat)
             {
-                // For flat interest, calculate remaining total interest
-                // Calculation moved to application layer.
-                outstandingInterest = 0;
+                interestDue = periods > 0 ? CalculateTotalInterest() / periods : 0;
             }
-            else
+            else // Compound
             {
-                // For compound interest, use accrued interest
-                var accruedInterest = CalculateAccruedInterest(repaymentDate);
-                var totalInterestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-                outstandingInterest = Math.Max(0, accruedInterest - totalInterestPaid);
+                int periodsPerYear = RepaymentFrequency switch
+                {
+                    RepaymentFrequencyType.Monthly => 12,
+                    RepaymentFrequencyType.Quarterly => 4,
+                    RepaymentFrequencyType.Yearly => 1,
+                    _ => 12
+                };
+                interestDue = outstandingPrincipal * (InterestRate / 100) / periodsPerYear;
             }
 
-            var interestPortion = Math.Min(amount, outstandingInterest);
-            var remaining = amount - interestPortion;
+            var interestPortion = interestDue;
+            var principalPortion = amount - interestPortion;
 
-            var outstandingPrincipal = Principal - Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
-            var principalPortion = Math.Min(remaining, outstandingPrincipal);
-            remaining -= principalPortion;
+            var totalInterest = CalculateTotalInterest();
+            var totalInterestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+            var outstandingInterest = Math.Max(0, totalInterest - totalInterestPaid);
+
+            // Adjust for last payment
+            if (principalPortion > outstandingPrincipal)
+            {
+                principalPortion = outstandingPrincipal;
+                interestPortion = amount - principalPortion;
+            }
+
+            if (interestPortion > outstandingInterest)
+            {
+                interestPortion = outstandingInterest;
+                principalPortion = amount - interestPortion;
+            }
+
+            var remaining = amount - interestPortion - principalPortion;
 
             if (remaining > 0 && !allowOverpayment)
                 throw new InvalidOperationException("OVERPAYMENT_NOT_ALLOWED: Repayment exceeds outstanding balance.");
@@ -146,20 +196,9 @@ namespace MoneyBoard.Domain.Entities
             var principalRepaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             var outstandingPrincipal = Principal - principalRepaid;
 
-            decimal outstandingInterest;
-            if (InterestType == InterestType.Flat)
-            {
-                // For flat interest, calculate remaining total interest
-                // Calculation moved to application layer.
-                outstandingInterest = 0;
-            }
-            else
-            {
-                // For compound interest, use accrued interest
-                var accruedInterest = CalculateAccruedInterest(asOfDate);
-                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-                outstandingInterest = Math.Max(0, accruedInterest - interestPaid);
-            }
+            var totalInterest = CalculateTotalInterest();
+            var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+            var outstandingInterest = Math.Max(0, totalInterest - interestPaid);
 
             var balance = outstandingPrincipal + outstandingInterest;
 
@@ -214,7 +253,7 @@ namespace MoneyBoard.Domain.Entities
             }
             else // Flat
             {
-                decimal emi = totalAmount / n;
+                decimal emi = (Principal + CalculateTotalInterest()) / n; // Use Principal + TotalInterest for flat EMI
                 return Math.Round(emi, 2, MidpointRounding.ToEven);
             }
         }

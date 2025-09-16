@@ -4,6 +4,7 @@ using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Domain.Entities;
 using MoneyBoard.Domain.Enums;
 using MoneyBoard.Domain.Repositories;
+using MoneyBoard.Application.Utilities;
 
 namespace MoneyBoard.Application.Services
 {
@@ -352,7 +353,7 @@ namespace MoneyBoard.Application.Services
             return (endDate.Year - loan.StartDate.Year) * 12 + (endDate.Month - loan.StartDate.Month);
         }
 
-        internal static int CalculateTotalInterest(Loan loan)
+        internal static decimal CalculateTotalInterest(Loan loan)
         {
             int months = GetDurationInMonths(loan);
             decimal principal = loan.Principal;
@@ -361,7 +362,7 @@ namespace MoneyBoard.Application.Services
 
             if (loan.InterestType == InterestType.Flat)
             {
-                totalInterest = principal * annualRate * (months / 12m);
+                totalInterest = Math.Round(principal * annualRate * (months / 12m), 0, MidpointRounding.AwayFromZero); // Round to nearest integer for flat interest
             }
             else // Compound
             {
@@ -375,10 +376,10 @@ namespace MoneyBoard.Application.Services
                     totalInterest = totalAmount - principal;
                 }
             }
-            return Utilities.FinancialRounding.RoundToHalf(totalInterest);
+            return totalInterest.RoundToCurrency(); // Still round to currency for compound interest
         }
 
-        internal static int CalculateTotalAmount(Loan loan)
+        internal static decimal CalculateTotalAmount(Loan loan)
         {
             int months = GetDurationInMonths(loan);
             decimal principal = loan.Principal;
@@ -387,8 +388,7 @@ namespace MoneyBoard.Application.Services
 
             if (loan.InterestType == InterestType.Flat)
             {
-                decimal totalInterest = principal * annualRate * (months / 12m);
-                totalAmount = principal + totalInterest;
+                totalAmount = loan.Principal + CalculateTotalInterest(loan);
             }
             else // Compound
             {
@@ -405,10 +405,10 @@ namespace MoneyBoard.Application.Services
                     totalAmount = principal;
                 }
             }
-            return Utilities.FinancialRounding.RoundToHalf(totalAmount);
+            return totalAmount.RoundToCurrency();
         }
 
-        internal static int CalculateMonthlyEMI(Loan loan)
+        internal static decimal CalculateMonthlyEMI(Loan loan)
         {
             int months = GetDurationInMonths(loan);
             decimal principal = loan.Principal;
@@ -420,9 +420,7 @@ namespace MoneyBoard.Application.Services
 
             if (loan.InterestType == InterestType.Flat)
             {
-                decimal totalInterest = principal * annualRate * (months / 12m);
-                decimal totalAmount = principal + totalInterest;
-                emi = totalAmount / months;
+                emi = CalculateTotalAmount(loan) / months;
             }
             else // Compound
             {
@@ -438,17 +436,17 @@ namespace MoneyBoard.Application.Services
                     emi = principal / months;
                 }
             }
-            return Utilities.FinancialRounding.RoundToHalf(emi);
+            return emi.RoundToCurrency();
         }
 
-        internal static int CalculateOutstandingBalance(Loan loan)
+        internal static decimal CalculateOutstandingBalance(Loan loan)
         {
-            int totalAmount = CalculateTotalAmount(loan);
+            decimal totalAmount = CalculateTotalAmount(loan);
             decimal totalRepayments = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.Amount);
             decimal outstanding = totalAmount - totalRepayments;
             if (outstanding < 0)
                 outstanding = 0;
-            return Utilities.FinancialRounding.RoundToHalf(outstanding);
+            return outstanding.RoundToCurrency();
         }
     }
 }
