@@ -30,6 +30,29 @@ namespace MoneyBoard.Application.Services
             _logger = logger;
         }
 
+        private int CalculateExpectedInstallments(Loan loan)
+        {
+            if (loan.EndDate == null) return int.MaxValue; // Unlimited if no end date
+
+            var start = loan.StartDate;
+            var end = loan.EndDate.Value;
+
+            if (loan.RepaymentFrequency == Domain.Enums.RepaymentFrequencyType.LumpSum) return 1;
+
+            int months = (end.Year - start.Year) * 12 + end.Month - start.Month;
+            if (end.Day < start.Day) months--;
+
+            if (months <= 0) return 0;
+
+            return loan.RepaymentFrequency switch
+            {
+                Domain.Enums.RepaymentFrequencyType.Monthly => months,
+                Domain.Enums.RepaymentFrequencyType.Quarterly => (int)Math.Ceiling(months / 3.0),
+                Domain.Enums.RepaymentFrequencyType.Yearly => (int)Math.Ceiling(months / 12.0),
+                _ => months
+            };
+        }
+
         public async Task<RepaymentResult> CreateRepaymentAsync(Guid loanId, CreateRepaymentRequestDto request, Guid userId)
         {
             _logger.LogInformation("Creating repayment for loan {LoanId}, amount: {Amount}", loanId, request.Amount);
@@ -47,6 +70,11 @@ namespace MoneyBoard.Application.Services
             if (request.RepaymentDate.Date < loan.StartDate.ToDateTime(TimeOnly.MinValue).Date)
                 return RepaymentResult.Error("Repayment date cannot be before loan start date.");
 
+            // Check repayment count against expected installments
+            var existingCount = await _repaymentRepository.GetRepaymentCountAsync(loanId, null);
+            var expected = CalculateExpectedInstallments(loan);
+            if (!loan.AllowOverpayment && existingCount + 1 > expected)
+                return RepaymentResult.Error("Repayment count exceeds expected schedule for this loan. Overpayment is not allowed.");
 
             // Additional date validations
             ValidateRepaymentDate(request.RepaymentDate, loan);
@@ -68,6 +96,10 @@ namespace MoneyBoard.Application.Services
 
             await _repaymentRepository.AddRepaymentAsync(repayment);
             await _repaymentRepository.SaveChangesAsync();
+
+            // Update loan status after repayment
+            loan.CalculateOutstandingBalance(request.RepaymentDate);
+            await _loanRepository.UpdateAsync(loan);
 
             await _auditService.LogAuditAsync(
                 "Repayment",
@@ -126,6 +158,10 @@ namespace MoneyBoard.Application.Services
             await _repaymentRepository.UpdateRepaymentAsync(repayment);
             await _repaymentRepository.SaveChangesAsync();
 
+            // Update loan status after repayment update
+            loan.CalculateOutstandingBalance(request.RepaymentDate);
+            await _loanRepository.UpdateAsync(loan);
+
             await _auditService.LogAuditAsync(
                 "Repayment",
                 repaymentId.ToString(),
@@ -178,6 +214,10 @@ namespace MoneyBoard.Application.Services
             await _repaymentRepository.UpdateRepaymentAsync(repayment);
             await _repaymentRepository.SaveChangesAsync();
 
+            // Update loan status after repayment deletion
+            loan.CalculateOutstandingBalance(DateTime.UtcNow);
+            await _loanRepository.UpdateAsync(loan);
+
             await _auditService.LogAuditAsync(
                 "Repayment",
                 repaymentId.ToString(),
@@ -208,6 +248,15 @@ namespace MoneyBoard.Application.Services
             var firstPossibleRepayment = loan.StartDate.ToDateTime(TimeOnly.MinValue);
             if (repaymentDate < firstPossibleRepayment)
                 throw new InvalidOperationException("Repayment date cannot be before the loan's start date.");
+
+            // Repayment date should not be after the loan's end date plus grace period
+            if (loan.EndDate.HasValue)
+            {
+                var endDateTime = loan.EndDate.Value.ToDateTime(TimeOnly.MinValue);
+                var graceEnd = endDateTime.AddDays(30);
+                if (repaymentDate > graceEnd)
+                    throw new InvalidOperationException("Repayment date is outside the loan's valid period.");
+            }
         }
 
         public async Task<RepaymentSummaryDto> GetRepaymentSummaryAsync(string role, Guid userId)

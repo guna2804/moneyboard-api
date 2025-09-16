@@ -33,7 +33,6 @@ namespace MoneyBoard.Application.Services
             loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
             loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
-            loanDto.NextDueDate = loan.GetNextDueDate();
 
             // Populate repayment history
             loanDto.RepaymentHistory = loan.Repayments
@@ -69,7 +68,6 @@ namespace MoneyBoard.Application.Services
                     loanDto.TotalPrincipalRepaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
                     loanDto.TotalInterestPaid = loan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
                     loanDto.OutstandingBalance = loan.CalculateOutstandingBalance();
-                    loanDto.NextDueDate = loan.GetNextDueDate();
                 }
             }
 
@@ -95,7 +93,6 @@ namespace MoneyBoard.Application.Services
             loanDto.TotalPrincipalRepaid = 0;
             loanDto.TotalInterestPaid = 0;
             loanDto.OutstandingBalance = createdLoan.CalculateOutstandingBalance();
-            loanDto.NextDueDate = createdLoan.GetNextDueDate();
 
             return loanDto;
         }
@@ -138,7 +135,6 @@ namespace MoneyBoard.Application.Services
             loanDto.TotalPrincipalRepaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = updatedLoan.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
             loanDto.OutstandingBalance = updatedLoan.CalculateOutstandingBalance();
-            loanDto.NextDueDate = updatedLoan.GetNextDueDate();
 
             return loanDto;
         }
@@ -186,7 +182,6 @@ namespace MoneyBoard.Application.Services
             loanDto.TotalPrincipalRepaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
             loanDto.TotalInterestPaid = createdAmendment.Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
             loanDto.OutstandingBalance = createdAmendment.CalculateOutstandingBalance();
-            loanDto.NextDueDate = createdAmendment.GetNextDueDate();
 
             return loanDto;
         }
@@ -299,27 +294,6 @@ namespace MoneyBoard.Application.Services
             return emi;
         }
 
-        private int CalculateNumberOfPeriods(Loan loan)
-        {
-            if (loan.EndDate == null)
-                return 0;
-
-            var start = loan.StartDate.ToDateTime(TimeOnly.MinValue);
-            var end = loan.EndDate.Value.ToDateTime(TimeOnly.MinValue);
-
-            int periodsPerYear = loan.RepaymentFrequency switch
-            {
-                RepaymentFrequencyType.Monthly => 12,
-                RepaymentFrequencyType.Quarterly => 4,
-                RepaymentFrequencyType.Yearly => 1,
-                _ => 12
-            };
-
-            var totalDays = (end - start).TotalDays;
-            var periods = (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
-
-            return periods;
-        }
 
         private int CalculateRemainingPeriods(Loan loan, DateOnly nextDueDate)
         {
@@ -334,6 +308,31 @@ namespace MoneyBoard.Application.Services
 
             var totalDays = (end.ToDateTime(TimeOnly.MinValue) - nextDueDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
             return (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
+        }
+
+        private int CalculateNumberOfPeriods(Loan loan)
+        {
+            if (loan.EndDate == null)
+                return 0;
+
+            var start = loan.StartDate;
+            var end = loan.EndDate.Value;
+
+            if (loan.RepaymentFrequency == RepaymentFrequencyType.LumpSum)
+                return 1;
+
+            int months = (end.Year - start.Year) * 12 + end.Month - start.Month;
+            if (end.Day < start.Day) months--;
+
+            if (months <= 0) return 0;
+
+            return loan.RepaymentFrequency switch
+            {
+                RepaymentFrequencyType.Monthly => months,
+                RepaymentFrequencyType.Quarterly => (int)Math.Ceiling(months / 3.0),
+                RepaymentFrequencyType.Yearly => (int)Math.Ceiling(months / 12.0),
+                _ => months
+            };
         }
     }
 }

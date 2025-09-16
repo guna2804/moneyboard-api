@@ -101,10 +101,11 @@ namespace MoneyBoard.Infrastructure.Data
             await context.Repayments.AddAsync(repayment);
         }
 
-        public async Task UpdateRepaymentAsync(Repayment repayment)
+        public Task UpdateRepaymentAsync(Repayment repayment)
         {
             repayment.SetUpdated();
             context.Repayments.Update(repayment);
+            return Task.CompletedTask;
         }
 
         public async Task SoftDeleteRepaymentAsync(Guid id)

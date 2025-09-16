@@ -114,9 +114,22 @@ namespace MoneyBoard.Domain.Entities
         public (decimal interestPortion, decimal principalPortion, decimal overpayment)
             AllocateRepayment(decimal amount, DateTime repaymentDate, bool allowOverpayment)
         {
-            var accruedInterest = CalculateAccruedInterest(repaymentDate);
-            var totalInterestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-            var outstandingInterest = Math.Max(0, accruedInterest - totalInterestPaid);
+            decimal outstandingInterest;
+
+            if (InterestType == InterestType.Flat)
+            {
+                // For flat interest, calculate remaining total interest
+                var totalInterest = CalculateTotalAmount() - Principal;
+                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+                outstandingInterest = Math.Max(0, totalInterest - interestPaid);
+            }
+            else
+            {
+                // For compound interest, use accrued interest
+                var accruedInterest = CalculateAccruedInterest(repaymentDate);
+                var totalInterestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+                outstandingInterest = Math.Max(0, accruedInterest - totalInterestPaid);
+            }
 
             var interestPortion = Math.Min(amount, outstandingInterest);
             var remaining = amount - interestPortion;
@@ -147,11 +160,23 @@ namespace MoneyBoard.Domain.Entities
         public decimal CalculateOutstandingBalance(DateTime asOfDate)
         {
             var principalRepaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.PrincipalComponent);
-            var accruedInterest = CalculateAccruedInterest(asOfDate);
-            var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
-
             var outstandingPrincipal = Principal - principalRepaid;
-            var outstandingInterest = Math.Max(0, accruedInterest - interestPaid);
+
+            decimal outstandingInterest;
+            if (InterestType == InterestType.Flat)
+            {
+                // For flat interest, calculate remaining total interest
+                var totalInterest = CalculateTotalAmount() - Principal;
+                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+                outstandingInterest = Math.Max(0, totalInterest - interestPaid);
+            }
+            else
+            {
+                // For compound interest, use accrued interest
+                var accruedInterest = CalculateAccruedInterest(asOfDate);
+                var interestPaid = Repayments.Where(r => !r.IsDeleted).Sum(r => r.InterestComponent);
+                outstandingInterest = Math.Max(0, accruedInterest - interestPaid);
+            }
 
             var balance = outstandingPrincipal + outstandingInterest;
 
@@ -218,21 +243,25 @@ namespace MoneyBoard.Domain.Entities
             if (EndDate == null)
                 return 0;
 
-            var start = StartDate.ToDateTime(TimeOnly.MinValue);
-            var end = EndDate.Value.ToDateTime(TimeOnly.MinValue);
+            var start = StartDate;
+            var end = EndDate.Value;
 
-            int periodsPerYear = RepaymentFrequency switch
+            if (RepaymentFrequency == RepaymentFrequencyType.LumpSum)
+                return 1;
+
+            int months = (end.Year - start.Year) * 12 + end.Month - start.Month;
+            if (end.Day < start.Day) months--;
+
+            if (months <= 0) return 0;
+
+            return RepaymentFrequency switch
             {
-                RepaymentFrequencyType.Monthly => 12,
-                RepaymentFrequencyType.Quarterly => 4,
-                RepaymentFrequencyType.Yearly => 1,
-                _ => 12
+                RepaymentFrequencyType.Monthly => months,
+                RepaymentFrequencyType.Quarterly => (int)Math.Ceiling(months / 3.0),
+                RepaymentFrequencyType.Yearly => (int)Math.Ceiling(months / 12.0),
+                _ => months
             };
-
-            var totalDays = (end - start).TotalDays;
-            var periods = (int)Math.Ceiling(totalDays / (365.0 / periodsPerYear));
-
-            return periods;
         }
+
     }
 }

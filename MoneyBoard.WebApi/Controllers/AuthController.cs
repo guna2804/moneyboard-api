@@ -42,14 +42,14 @@ namespace MoneyBoard.WebApi.Controllers
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             await _authService.ForgotPasswordAsync(dto);
-            return ApiResponseHelper.OkResponse<object>(null, "If the email exists, a reset link has been sent.");
+            return ApiResponseHelper.OkResponse<object?>(null, "If the email exists, a reset link has been sent.");
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
         {
             await _authService.ResetPasswordAsync(dto);
-            return ApiResponseHelper.OkResponse<object>(null, "Password has been reset successfully.");
+            return ApiResponseHelper.OkResponse<object?>(null, "Password has been reset successfully.");
         }
 
         [HttpPost("change-password")]
@@ -64,7 +64,7 @@ namespace MoneyBoard.WebApi.Controllers
             }
 
             await _authService.ChangePasswordAsync(userId, dto);
-            return ApiResponseHelper.OkResponse<object>(null, "Password has been changed successfully.");
+            return ApiResponseHelper.OkResponse<object?>(null, "Password has been changed successfully.");
         }
     }
 }

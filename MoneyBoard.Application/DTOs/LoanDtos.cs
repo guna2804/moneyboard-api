@@ -49,7 +49,6 @@ namespace MoneyBoard.Application.DTOs
         public decimal TotalPrincipalRepaid { get; set; }
         public decimal TotalInterestPaid { get; set; }
         public decimal OutstandingBalance { get; set; }
-        public DateTime? NextDueDate { get; set; }
     }
 
     public class UpdateLoanDto

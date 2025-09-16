@@ -285,5 +285,160 @@ namespace MoneyBoard.Application.Tests
                 () => _service.UpdateRepaymentAsync(loanId, repaymentId, request, userId));
             Assert.Contains("monthly period", exception.Message);
         }
+
+        [Fact]
+        public async Task CreateRepaymentAsync_ExceedsExpectedInstallments_AllowOverpaymentFalse_ReturnsError()
+        {
+            // Arrange
+            var loanId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var request = new CreateRepaymentRequestDto
+            {
+                Amount = 1000,
+                RepaymentDate = DateTime.UtcNow,
+                Notes = "Test repayment"
+            };
+
+            var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-5)));
+            loan.EndDate = DateOnly.FromDateTime(DateTime.UtcNow); // 5 months loan
+            loan.RepaymentFrequency = Domain.Enums.RepaymentFrequencyType.Monthly;
+            loan.AllowOverpayment = false;
+
+            _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.GetRepaymentCountAsync(loanId, null)).ReturnsAsync(5); // 5 existing, expected 5
+
+            // Act
+            var result = await _service.CreateRepaymentAsync(loanId, request, userId);
+
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Contains("exceeds expected schedule", result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task CreateRepaymentAsync_ExceedsExpectedInstallments_AllowOverpaymentTrue_Succeeds()
+        {
+            // Arrange
+            var loanId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var request = new CreateRepaymentRequestDto
+            {
+                Amount = 1000,
+                RepaymentDate = DateTime.UtcNow,
+                Notes = "Test repayment"
+            };
+
+            var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-5)));
+            loan.EndDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            loan.RepaymentFrequency = Domain.Enums.RepaymentFrequencyType.Monthly;
+            loan.AllowOverpayment = true; // Allow overpayment
+
+            var nextDueDate = DateTime.UtcNow.AddMonths(1);
+            var repayment = new Repayment(loanId, request.Amount, request.RepaymentDate, 0, 0, nextDueDate);
+            var response = new RepaymentResponseDto { Id = repayment.Id, Amount = request.Amount };
+
+            _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.GetRepaymentCountAsync(loanId, null)).ReturnsAsync(5);
+            _repaymentRepositoryMock.Setup(r => r.AddRepaymentAsync(It.IsAny<Repayment>())).Returns(Task.CompletedTask);
+            _loanRepositoryMock.Setup(r => r.UpdateAsync(It.IsAny<Loan>())).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+            _mapperMock.Setup(m => m.Map<RepaymentResponseDto>(It.IsAny<Repayment>())).Returns(response);
+
+            // Act
+            var result = await _service.CreateRepaymentAsync(loanId, request, userId);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task CreateRepaymentAsync_RepaymentDateAfterEndDate_ThrowsException()
+        {
+            // Arrange
+            var loanId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var request = new CreateRepaymentRequestDto
+            {
+                Amount = 1000,
+                RepaymentDate = DateTime.UtcNow.AddDays(40), // After end +30 days grace
+                Notes = "Test repayment"
+            };
+
+            var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1)));
+            loan.EndDate = DateOnly.FromDateTime(DateTime.UtcNow); // End date now
+            loan.AllowOverpayment = true;
+
+            _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.GetRepaymentCountAsync(loanId, null)).ReturnsAsync(0);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateRepaymentAsync(loanId, request, userId));
+            Assert.Contains("outside the loan's valid period", exception.Message);
+        }
+
+        [Fact]
+        public async Task CreateRepaymentAsync_RepaymentDateWithinGracePeriod_Succeeds()
+        {
+            // Arrange
+            var loanId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var request = new CreateRepaymentRequestDto
+            {
+                Amount = 1000,
+                RepaymentDate = DateTime.UtcNow.AddDays(20), // Within 30 days grace
+                Notes = "Test repayment"
+            };
+
+            var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1)));
+            loan.EndDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            loan.AllowOverpayment = true;
+
+            var nextDueDate = DateTime.UtcNow.AddMonths(1);
+            var repayment = new Repayment(loanId, request.Amount, request.RepaymentDate, 0, 0, nextDueDate);
+            var response = new RepaymentResponseDto { Id = repayment.Id, Amount = request.Amount };
+
+            _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.GetRepaymentCountAsync(loanId, null)).ReturnsAsync(0);
+            _repaymentRepositoryMock.Setup(r => r.AddRepaymentAsync(It.IsAny<Repayment>())).Returns(Task.CompletedTask);
+            _loanRepositoryMock.Setup(r => r.UpdateAsync(It.IsAny<Loan>())).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+            _mapperMock.Setup(m => m.Map<RepaymentResponseDto>(It.IsAny<Repayment>())).Returns(response);
+
+            // Act
+            var result = await _service.CreateRepaymentAsync(loanId, request, userId);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+        }
+
+        [Fact]
+        public async Task CreateRepaymentAsync_LumpSumExceedsExpected_ThrowsException()
+        {
+            // Arrange
+            var loanId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var request = new CreateRepaymentRequestDto
+            {
+                Amount = 1000,
+                RepaymentDate = DateTime.UtcNow,
+                Notes = "Test repayment"
+            };
+
+            var loan = new Loan(userId, "Test Counterparty", 5000, 5, Domain.Enums.InterestType.Simple, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1)));
+            loan.EndDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            loan.RepaymentFrequency = Domain.Enums.RepaymentFrequencyType.LumpSum;
+            loan.AllowOverpayment = false;
+
+            _loanRepositoryMock.Setup(r => r.GetByIdAsync(loanId)).ReturnsAsync(loan);
+            _repaymentRepositoryMock.Setup(r => r.GetRepaymentCountAsync(loanId, null)).ReturnsAsync(1); // Already 1, expected 1
+
+            // Act
+            var result = await _service.CreateRepaymentAsync(loanId, request, userId);
+
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Contains("exceeds expected schedule", result.ErrorMessage);
+        }
     }
 }

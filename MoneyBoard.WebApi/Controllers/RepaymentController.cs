@@ -90,7 +90,7 @@ namespace MoneyBoard.WebApi.Controllers
             {
                 return ApiResponseHelper.BadRequestResponse(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("An unexpected error occurred.");
             }

@@ -38,7 +38,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetSummaryAsync(userId);
                 return ApiResponseHelper.OkResponse(result, "Dashboard summary retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Database or calculation error.");
             }
@@ -58,7 +58,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetRecentTransactionsAsync(userId, limit, page);
                 return ApiResponseHelper.OkResponse(result, "Recent transactions retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Error retrieving recent transactions.");
             }
@@ -78,7 +78,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetUpcomingPaymentsAsync(userId, limit, page);
                 return ApiResponseHelper.OkResponse(result, "Upcoming payments retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Error retrieving upcoming payments.");
             }
@@ -98,7 +98,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetMonthlyRepaymentsAsync(userId, year);
                 return ApiResponseHelper.OkResponse(new { monthlyRepayments = result }, "Monthly repayments retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Error retrieving monthly repayments.");
             }
@@ -113,7 +113,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetLoanStatusDistributionAsync(userId);
                 return ApiResponseHelper.OkResponse(new { distribution = result }, "Loan status distribution retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Aggregation error.");
             }
@@ -128,7 +128,7 @@ namespace MoneyBoard.WebApi.Controllers
                 var result = await _dashboardService.GetAlertsAsync(userId);
                 return ApiResponseHelper.OkResponse(new { alerts = result }, "Alerts retrieved successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponseHelper.InternalServerErrorResponse("Error retrieving alerts.");
             }

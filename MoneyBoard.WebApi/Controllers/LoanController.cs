@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
-using MoneyBoard.Application.Validators;
 using MoneyBoard.WebApi.Extensions;
 
 namespace MoneyBoard.WebApi.Controllers
