@@ -10,11 +10,14 @@ namespace MoneyBoard.Application.DTOs
         public string Role { get; set; } = string.Empty; // "Lender" or "Borrower"
         public decimal Principal { get; set; }
         public decimal InterestRate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public InterestType InterestType { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly? EndDate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public RepaymentFrequencyType RepaymentFrequency { get; set; } = RepaymentFrequencyType.Monthly;
         public bool AllowOverpayment { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public CurrencyType Currency { get; set; }
         public string? Notes { get; set; } // optional notes about the loan
     }
@@ -27,17 +30,21 @@ namespace MoneyBoard.Application.DTOs
         public string Role { get; set; } = string.Empty;
         public decimal Principal { get; set; }
         public decimal InterestRate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public InterestType InterestType { get; set; }
-
+ 
         //public CompoundingFrequencyType CompoundingFrequency { get; set; }
         public DateOnly StartDate { get; set; }
-
+ 
         public DateOnly? EndDate { get; set; }
-
+ 
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public RepaymentFrequencyType RepaymentFrequency { get; set; }
         public bool AllowOverpayment { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public CurrencyType Currency { get; set; }
-
+ 
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public LoanStatus Status { get; set; }
         public string? Notes { get; set; }
         public decimal TotalAmount { get; set; }
@@ -57,11 +64,14 @@ namespace MoneyBoard.Application.DTOs
         public string Role { get; set; } = string.Empty;
         public decimal Principal { get; set; } // Only editable before first repayment
         public decimal InterestRate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public InterestType InterestType { get; set; }
         public DateOnly StartDate { get; set; } // Only editable before first repayment
         public DateOnly? EndDate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public RepaymentFrequencyType RepaymentFrequency { get; set; } = RepaymentFrequencyType.Monthly;
         public bool AllowOverpayment { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public CurrencyType Currency { get; set; }
         public string? Notes { get; set; }
     }
@@ -69,10 +79,13 @@ namespace MoneyBoard.Application.DTOs
     public class AmendLoanDto
     {
         public decimal InterestRate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public InterestType InterestType { get; set; }
         public DateOnly? EndDate { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public RepaymentFrequencyType RepaymentFrequency { get; set; } = RepaymentFrequencyType.Monthly;
         public bool AllowOverpayment { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public CurrencyType Currency { get; set; }
         public string? Notes { get; set; }
     }
@@ -123,6 +136,7 @@ namespace MoneyBoard.Application.DTOs
         public decimal InterestComponent { get; set; }
         public decimal Amount { get; set; }
         public string? Notes { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public RepaymentStatus Status { get; set; }
     }
 }
