@@ -16,6 +16,9 @@ namespace MoneyBoard.Application.Mappings
 
             CreateMap<Loan, LoanDetailsDto>();
 
+            CreateMap<Loan, LoanWithRepaymentHistoryDto>()
+                .ForMember(dest => dest.RepaymentHistory, opt => opt.Ignore()); // Set manually in service
+
             // UpdateLoanDto mapping - service layer controls which fields are actually updated
             CreateMap<UpdateLoanDto, Loan>()
                 .ForMember(dest => dest.CounterpartyName, opt => opt.MapFrom(src => src.CounterpartyName))

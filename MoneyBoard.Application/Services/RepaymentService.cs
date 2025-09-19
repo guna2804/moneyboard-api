@@ -1,9 +1,10 @@
 ﻿using AutoMapper;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
+using MoneyBoard.Application.Utilities;
 using MoneyBoard.Domain.Entities;
-using MoneyBoard.Domain.Enums;
 using MoneyBoard.Domain.Repositories;
 
 namespace MoneyBoard.Application.Services
@@ -15,19 +16,22 @@ namespace MoneyBoard.Application.Services
         private readonly IAuditService _auditService;
         private readonly IMapper _mapper;
         private readonly ILogger<RepaymentService> _logger;
+        private readonly RepaymentSettings _repaymentSettings;
 
         public RepaymentService(
             IRepaymentRepository repaymentRepository,
             ILoanRepository loanRepository,
             IAuditService auditService,
             IMapper mapper,
-            ILogger<RepaymentService> logger)
+            ILogger<RepaymentService> logger,
+            IOptions<RepaymentSettings> repaymentSettings)
         {
             _repaymentRepository = repaymentRepository;
             _loanRepository = loanRepository;
             _auditService = auditService;
             _mapper = mapper;
             _logger = logger;
+            _repaymentSettings = repaymentSettings.Value;
         }
 
         private int CalculateExpectedInstallments(Loan loan)
@@ -77,7 +81,9 @@ namespace MoneyBoard.Application.Services
                 return RepaymentResult.Error("Repayment count exceeds expected schedule for this loan. Overpayment is not allowed.");
 
             // Additional date validations
-            ValidateRepaymentDate(request.RepaymentDate, loan);
+            var dateError = ValidateRepaymentDate(request.RepaymentDate, loan, _repaymentSettings);
+            if (dateError != null)
+                return RepaymentResult.Error(dateError);
 
             var (interestPortion, principalPortion, remaining) =
                 loan.AllocateRepayment(request.Amount, request.RepaymentDate, loan.AllowOverpayment);
@@ -137,9 +143,10 @@ namespace MoneyBoard.Application.Services
 
             var oldAmount = repayment.Amount;
 
-
             // Additional date validations
-            ValidateRepaymentDate(request.RepaymentDate, loan);
+            var dateError = ValidateRepaymentDate(request.RepaymentDate, loan, _repaymentSettings);
+            if (dateError != null)
+                return RepaymentResult.Error(dateError);
 
             var (interestPortion, principalPortion, remaining) =
                 loan.AllocateRepayment(request.Amount, request.RepaymentDate, loan.AllowOverpayment);
@@ -227,36 +234,42 @@ namespace MoneyBoard.Application.Services
             );
         }
 
-
-        private static void ValidateRepaymentDate(DateTime repaymentDate, Loan loan)
+        private static string? ValidateRepaymentDate(DateTime repaymentDate, Loan loan, RepaymentSettings settings)
         {
-            var now = DateTime.UtcNow;
+            var minDate = loan.StartDate.ToDateTime(TimeOnly.MinValue);
+            DateTime maxDate;
 
-            // Repayment date cannot be more than 1 year in the future
-            if (repaymentDate > now.AddYears(1))
-                throw new InvalidOperationException("Repayment date cannot be more than 1 year in the future.");
+            if (loan.EndDate.HasValue)
+            {
+                maxDate = loan.EndDate.Value.ToDateTime(TimeOnly.MinValue).AddDays(settings.GracePeriodDays);
+            }
+            else
+            {
+                // Open-ended loans: allow up to 1 year ahead
+                maxDate = DateTime.UtcNow.AddYears(1);
+            }
 
-            // For lump sum loans, repayment date should be reasonable
+            if (repaymentDate < minDate)
+            {
+                return $"Repayment date must be on or after the loan start date ({minDate:yyyy-MM-dd}).";
+            }
+
+            if (repaymentDate > maxDate)
+            {
+                var graceText = loan.EndDate.HasValue ? $"including {settings.GracePeriodDays}-day grace period" : "for open-ended loans";
+                return $"Repayment date must be between {minDate:yyyy-MM-dd} and {maxDate:yyyy-MM-dd} ({graceText}).";
+            }
+
+            // For lump sum loans, additional check
             if (loan.RepaymentFrequency == Domain.Enums.RepaymentFrequencyType.LumpSum)
             {
                 var loanEndDate = loan.EndDate ?? loan.StartDate.AddYears(1);
-                if (repaymentDate > loanEndDate.ToDateTime(TimeOnly.MinValue).AddMonths(1))
-                    throw new InvalidOperationException("Lump sum repayment date should be within a reasonable time after the loan end date.");
+                var lumpSumMax = loanEndDate.ToDateTime(TimeOnly.MinValue).AddMonths(1);
+                if (repaymentDate > lumpSumMax)
+                    return $"Lump sum repayment date should be within a reasonable time after the loan end date ({lumpSumMax:yyyy-MM-dd}).";
             }
 
-            // Repayment date should not be before the loan's first possible repayment date
-            var firstPossibleRepayment = loan.StartDate.ToDateTime(TimeOnly.MinValue);
-            if (repaymentDate < firstPossibleRepayment)
-                throw new InvalidOperationException("Repayment date cannot be before the loan's start date.");
-
-            // Repayment date should not be after the loan's end date plus grace period
-            if (loan.EndDate.HasValue)
-            {
-                var endDateTime = loan.EndDate.Value.ToDateTime(TimeOnly.MinValue);
-                var graceEnd = endDateTime.AddDays(30);
-                if (repaymentDate > graceEnd)
-                    throw new InvalidOperationException("Repayment date is outside the loan's valid period.");
-            }
+            return null;
         }
 
         public async Task<RepaymentSummaryDto> GetRepaymentSummaryAsync(string role, Guid userId)

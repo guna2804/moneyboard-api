@@ -15,7 +15,7 @@ namespace MoneyBoard.Application.Validators
 
                 RuleFor(x => x.RepaymentDate)
                     .NotEmpty().WithMessage("Repayment date is required.")
-                    .LessThanOrEqualTo(DateTime.UtcNow).WithMessage("Repayment date cannot be in the future.")
+                    .LessThanOrEqualTo(DateTime.UtcNow.AddYears(1)).WithMessage("Repayment date cannot be more than 1 year in the future.")
                     .GreaterThanOrEqualTo(DateTime.UtcNow.AddYears(-10)).WithMessage("Repayment date cannot be more than 10 years in the past.");
 
                 RuleFor(x => x.Notes)
@@ -35,7 +35,7 @@ namespace MoneyBoard.Application.Validators
 
                 RuleFor(x => x.RepaymentDate)
                     .NotEmpty().WithMessage("Repayment date is required.")
-                    .LessThanOrEqualTo(DateTime.UtcNow).WithMessage("Repayment date cannot be in the future.")
+                    .LessThanOrEqualTo(DateTime.UtcNow.AddYears(1)).WithMessage("Repayment date cannot be more than 1 year in the future.")
                     .GreaterThanOrEqualTo(DateTime.UtcNow.AddYears(-10)).WithMessage("Repayment date cannot be more than 10 years in the past.");
 
                 RuleFor(x => x.Notes)

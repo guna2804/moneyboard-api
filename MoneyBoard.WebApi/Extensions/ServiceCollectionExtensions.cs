@@ -3,11 +3,13 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MoneyBoard.Application.DTOs;
 using MoneyBoard.Application.Interfaces;
 using MoneyBoard.Application.Mappings;
+using MoneyBoard.Application.Utilities;
 using MoneyBoard.Application.Validators;
 using System.Reflection;
 using System.Text;
@@ -19,6 +21,8 @@ namespace MoneyBoard.WebApi.Extensions
     {
         public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration config)
         {
+            services.Configure<RepaymentSettings>(config.GetSection("Repayment"));
+
             services.AddFluentValidationAutoValidation();
             services.AddFluentValidationClientsideAdapters();
 
